@@ -1,0 +1,86 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap');
+
+:root {
+  /* font-family: system-ui, Avenir, Helvetica, Arial, sans-serif; */
+  font-family: 'Merriweather', serif; /* Set default body font */
+  line-height: 1.6; /* Improved readability */
+  font-weight: 400;
+  font-size: 16px; /* Base font size */
+
+  /* color-scheme: light dark; Removed - using custom theme */
+  /* color: rgba(255, 255, 255, 0.87); Removed - using custom theme */
+  /* background-color: #242424; Removed - using custom theme */
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+#root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 0 1em;
+  width: 100%;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: #2E2925; /* Set global background from our theme */
+  color: #F5EEDC; /* Set default text color from our theme */
+  overflow: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Cinzel Decorative', serif; /* Set heading font */
+  font-weight: 700;
+  line-height: 1.2;
+  color: #E6A800; /* Gold color for headings */
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+h1 { font-size: 2.5em; }
+h2 { font-size: 2em; }
+h3 { font-size: 1.75em; }
+h4 { font-size: 1.5em; }
+/* Add more specific heading styles if needed */
+
+button {
+  border-radius: 6px; /* Slightly smaller radius */
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 700; /* Bolder buttons */
+  font-family: 'Merriweather', serif; /* Ensure button font matches body */
+  /* background-color: #1a1a1a; Removed - use theme colors */
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s; /* Smoother transition */
+  /* Use theme colors for buttons - applied in components */
+}
+/* button:hover {
+  border-color: #646cff; Removed - use theme colors
+} */
+button:focus,
+button:focus-visible {
+  outline: 2px solid #E6A800; /* Gold outline on focus */
+  outline-offset: 2px;
+}
+
+/* Remove default light mode styles */
+/* @media (prefers-color-scheme: light) { ... } */
