@@ -28,10 +28,22 @@ export default function ShopLayout() {
         backgroundColor: COLORS.panel,
         borderRadius: 8,
         border: `1px solid ${COLORS.panelStroke}`,
-        color: COLORS.text // Set default text color for the panel
+        color: COLORS.text, // Set default text color for the panel
+        display: 'grid', // Use grid for better alignment
+        gridTemplateColumns: 'auto 1fr auto auto auto', // Columns: Day, Spacer, Rep, Loan, Gold (Adjusted grid)
+        gap: UI_PADDING * 1.5 // Adjusted gap slightly
       }}>
         <span style={{ fontWeight: 'bold' }}>Day {state.day}</span>
-        <span style={{ color: COLORS.textGold, fontWeight: 'bold' }}>{state.gold}g</span>
+        {/* Spacer element */}
+        <span></span>
+        {/* Reputation Display */}
+        <span style={{ fontWeight: 'bold' }}>Rep: {state.reputation}</span>
+        {/* Loan Due Date & Amount Display */}
+        <span style={{ fontWeight: 'bold', color: state.day >= state.loanDueDate ? COLORS.textDanger : COLORS.textLight }}>
+          Loan: {state.loanAmount}g / {state.totalLoanOwed}g (Due Day {state.loanDueDate})
+        </span>
+        {/* Gold Display */}
+        <span style={{ color: COLORS.textGold, fontWeight: 'bold', textAlign: 'right' }}>{state.gold}g</span>
       </div>
 
       {/* Main Content */}
@@ -44,7 +56,7 @@ export default function ShopLayout() {
       }}>
         {/* Conditionally render Shelf/Market based on phase */}
         {/* Show Shelf during 'setting up' and 'selling', Market during 'management' */}
-        {state.phase === 'management' ? <MarketPanel /> : <Shelf />} 
+        {state.phase === 'management' ? <MarketPanel /> : <Shelf />}
         <DialoguePanel />
       </div>
 

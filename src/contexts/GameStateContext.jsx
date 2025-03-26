@@ -26,8 +26,20 @@ function gameReducer(state, action) {
     case 'ADD_DIALOGUE':
       return { ...state, dialogue: [...state.dialogue, action.payload] };
     
-    case 'SET_DAY': // Add case for setting the day
+    case 'SET_DAY':
       return { ...state, day: action.payload };
+    
+    case 'SET_LOAN_DUE_DATE': // Action to update due date after payment
+      return { ...state, loanDueDate: action.payload };
+
+    case 'SET_GAME_OVER': // Action to set game over state
+      return { ...state, gameOver: true, phase: 'game over' }; // Also set phase
+
+    case 'DECREASE_TOTAL_LOAN': // Action to reduce total loan owed
+      return { ...state, totalLoanOwed: Math.max(0, state.totalLoanOwed - action.payload) };
+
+    case 'SET_WEBLLM_STATUS': // Action to update loading status text
+      return { ...state, webllmStatus: action.payload };
 
     case 'BUY_ITEM': {
       const itemToBuy = action.payload;
@@ -105,44 +117,15 @@ function gameReducer(state, action) {
             text: spokenResponse,
             offer: customerOffer
           }],
-          patience: calculateStartingPatience(customer.personalityTraits), // Initialize patience
+          initialPatience: calculateStartingPatience(customer.personalityTraits), // Store initial
+          patience: calculateStartingPatience(customer.personalityTraits), // Initialize current patience
           status: 'active' // Negotiation is now active
         }
       };
     }
 
-    case 'PLAYER_RESPONSE': {
-      console.log('Handling PLAYER_RESPONSE with payload:', action.payload);
-      if (!state.currentNegotiation) {
-        console.warn('No current negotiation to respond to');
-        return state;
-      }
-      
-      const { text, price } = action.payload;
-      console.log('Updating negotiation state with player response');
-      return {
-        ...state,
-        currentNegotiation: {
-          ...state.currentNegotiation,
-          playerOffer: price,
-          history: [
-            ...state.currentNegotiation.history,
-            {
-              speaker: 'player',
-              text: text,
-              offer: price
-            }
-          ]
-        },
-        dialogue: [
-          ...state.dialogue,
-          `You: ${text}`
-        ]
-      };
-    }
-
-    // Decrease patience on player/customer counter-offers
-    case 'PLAYER_RESPONSE': {
+    // Combined and corrected PLAYER_RESPONSE case
+    case 'PLAYER_RESPONSE': { 
       console.log('Handling PLAYER_RESPONSE with payload:', action.payload);
       if (!state.currentNegotiation) {
         console.warn('No current negotiation to respond to');
@@ -152,20 +135,23 @@ function gameReducer(state, action) {
       const { text, price } = action.payload;
       const currentPatience = state.currentNegotiation.patience ?? 5; // Default if undefined
       const nextPatience = Math.max(0, currentPatience - 1); // Decrease patience, min 0
+      const dialogueText = `You: ${text} (Offer ${price}g)`; // Add offer to dialogue
       console.log('Updating negotiation state with player response, patience:', nextPatience);
 
       // If patience hits 0 after player response, end negotiation immediately
       if (nextPatience === 0) {
         console.log('Patience hit 0, ending negotiation.');
         const reputationChange = -1; // Lose reputation
+        // Ensure customer name is available for the message
+        const customerName = state.currentNegotiation.customer?.name || 'The customer'; 
         return {
           ...state,
           currentNegotiation: null,
           reputation: state.reputation + reputationChange,
           dialogue: [
             ...state.dialogue,
-            `You: ${text}`, // Show player's last attempt
-            `${state.currentNegotiation.customer.name} has run out of patience! Negotiation ended. (${reputationChange} Rep)`
+            dialogueText, // Show player's last attempt with offer
+            `${customerName} has run out of patience! Negotiation ended. (${reputationChange} Rep)` // Improved message
           ]
         };
       }
@@ -188,7 +174,7 @@ function gameReducer(state, action) {
         },
         dialogue: [
           ...state.dialogue,
-          `You: ${text}`
+          dialogueText // Use text with offer included
         ]
       };
     }
@@ -226,7 +212,8 @@ function gameReducer(state, action) {
         },
         dialogue: [
           ...state.dialogue,
-          `${state.currentNegotiation.customer.name}: ${text}`
+          // Add offer to dialogue message
+          `${state.currentNegotiation.customer.name}: ${text} ${offer !== null ? `(Offers ${offer}g)` : ''}` 
         ]
       };
     }
@@ -263,6 +250,23 @@ function gameReducer(state, action) {
       };
     }
 
+    case 'UPGRADE_SHELF': { // New action type
+      const upgradeCost = action.payload; // Pass cost in payload
+      if (state.gold >= upgradeCost) {
+        return {
+          ...state,
+          gold: state.gold - upgradeCost,
+          shopShelves: state.shopShelves + 1,
+          dialogue: [
+            ...state.dialogue,
+            `Upgraded shelf capacity to ${state.shopShelves + 1}! (-${upgradeCost}g)`
+          ]
+        };
+      }
+      // Should ideally be prevented by button disable, but good to have safeguard
+      return state; 
+    }
+
     case 'END_NEGOTIATION': {
       if (!state.currentNegotiation) return state;
       const reputationChange = -1; // Lose reputation on failed/ended negotiation
@@ -271,9 +275,10 @@ function gameReducer(state, action) {
         ...state,
         currentNegotiation: null,
         reputation: state.reputation + reputationChange, // Update reputation
+        // Dialogue for rejection/patience running out is handled elsewhere
         dialogue: [
           ...state.dialogue,
-          `Negotiation ended. (${reputationChange} Rep)`
+          `Negotiation ended.` // Simple message
         ]
       };
     }

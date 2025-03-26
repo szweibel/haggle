@@ -3,15 +3,50 @@ import { useGameState } from '../contexts/GameStateContext';
 import { useWebLLMContext } from '../contexts/WebLLMContext';
 import { COLORS, UI_PADDING, CUSTOMER_TYPES } from '../gameState';
 
+// Helper function to get patience description
+function getPatienceDescription(current, initial) {
+  if (current === undefined || initial === undefined) return ''; 
+  const ratio = current / initial;
+  if (ratio >= 0.8) return 'Patient';
+  if (ratio >= 0.5) return 'Considering';
+  if (ratio >= 0.2) return 'Restless';
+  if (current > 0) return 'Impatient!';
+  return 'Livid!'; // Should ideally not be seen as negotiation ends at 0
+}
+
 export default function Controls() {
   const { state, dispatch } = useGameState();
   const { generateResponse, loading: webLLMLoading } = useWebLLMContext(); // Use context hook
+
+  // Define reputation thresholds for customer tiers
+  const CUSTOMER_TIER_THRESHOLDS = [0, 5, 15]; // Rep required for Tier 0, 1, 2
+
+  // Helper function to get eligible customers based on reputation
+  function getEligibleCustomers(reputation) {
+    let maxTier = 0;
+    for (let i = CUSTOMER_TIER_THRESHOLDS.length - 1; i >= 0; i--) {
+      if (reputation >= CUSTOMER_TIER_THRESHOLDS[i]) {
+        maxTier = i;
+        break;
+      }
+    }
+    return CUSTOMER_TYPES.filter(customer => customer.tier <= maxTier);
+  }
 
   const handleNextCustomer = async () => {
     // Add check for webLLMLoading
     if (state.displayedItems.length === 0 || webLLMLoading) return; 
     
-    const customer = getRandomCustomer();
+    // Get eligible customers based on reputation
+    const eligibleCustomers = getEligibleCustomers(state.reputation);
+    if (eligibleCustomers.length === 0) {
+      console.error("No eligible customers found for current reputation:", state.reputation);
+      // Maybe add dialogue? "No customers seem interested in your shop today."
+      return; 
+    }
+    // Select a random customer from the eligible list
+    const customer = eligibleCustomers[Math.floor(Math.random() * eligibleCustomers.length)];
+
     dispatch({ 
       type: 'SET_CUSTOMER', 
       payload: customer 
@@ -37,12 +72,15 @@ export default function Controls() {
 
     // Use personalityTraits array
     const traitsString = customer.personalityTraits.join(', ');
+    // Include player reputation in the context
     const systemPrompt = `You are ${customer.name}, ${customer.description}. Your personality traits are **${traitsString}**. Your budget is ${customer.budget}g.
+The shopkeeper's current reputation is ${state.reputation}. (Positive is good, negative is bad).
+
 You see the following items for sale:
 ${itemsForPrompt.map(i => `- ${i.name} (ID: ${i.id}, Asking: ${i.askingPrice}g, Base Value: ${i.baseValue}g)`).join('\n')}
 
-1. Choose ONE item from the list that interests you based on your personality traits (${traitsString}) and preferences (Interests: ${customer.interests.join(', ')}).
-2. Calculate an initial offer price for that item based *strongly* on your personality traits (${traitsString}) and the item's Base Value (${itemsForPrompt.map(i => `${i.name}: ${i.baseValue}g`).join(', ')}), NOT the asking price.
+1. Choose ONE item from the list that interests you based on your personality traits (${traitsString}) and preferences (Interests: ${customer.interests.join(', ')}). Consider items roughly within your budget.
+2. Calculate an initial offer price for that item based *strongly* on your personality traits (${traitsString}) and the item's Base Value (${itemsForPrompt.map(i => `${i.name}: ${i.baseValue}g`).join(', ')}), NOT the asking price. **Subtly adjust this initial offer based on the shopkeeper's reputation:** slightly higher if rep is good (e.g., >10), slightly lower if rep is bad (e.g., < -5).
    - Generous: ~80-110% of Base Value.
    - Stingy/Frugal: ~40-60% of Base Value.
    - Arrogant: Dismissively low, maybe ~30-50% of Base Value.
@@ -64,8 +102,8 @@ ${itemsForPrompt.map(i => `- ${i.name} (ID: ${i.id}, Asking: ${i.askingPrice}g, 
       const chosenItem = state.displayedItems.find(item => item.instanceId === parsedResponse.itemId);
       
       if (chosenItem) {
-        // Add dialogue first
-        dispatch({ type: 'ADD_DIALOGUE', payload: `${customer.name}: ${parsedResponse.spokenResponse}` });
+        // Add dialogue first, including the offer
+        dispatch({ type: 'ADD_DIALOGUE', payload: `${customer.name}: ${parsedResponse.spokenResponse} (Offers ${parsedResponse.offer}g)` });
         // Start negotiation state
         dispatch({ 
           type: 'START_NEGOTIATION', 
@@ -91,9 +129,7 @@ ${itemsForPrompt.map(i => `- ${i.name} (ID: ${i.id}, Asking: ${i.askingPrice}g, 
     }
   };
 
-  function getRandomCustomer() {
-    return CUSTOMER_TYPES[Math.floor(Math.random() * CUSTOMER_TYPES.length)];
-  }
+  // Removed old getRandomCustomer function as logic is now inline
 
   const handleAdvanceTime = () => {
     let nextPhase = '';
@@ -110,14 +146,65 @@ ${itemsForPrompt.map(i => `- ${i.name} (ID: ${i.id}, Asking: ${i.askingPrice}g, 
       nextPhase = 'setting up';
       nextDay = state.day + 1; // Increment day when moving from management to morning
       dialogueMessage = `Day ${nextDay} begins. Time to set up the shelves.`;
-      // TODO: Potentially reset market items or other daily tasks here
     }
 
+    // --- Loan Payment Check (at end of day, before advancing day/phase) ---
+    let loanMessages = [];
+    let triggerGameOver = false;
+    let nextLoanDueDate = state.loanDueDate;
+
+    if (state.phase === 'selling') { // Check happens when transitioning FROM selling
+      // Use >= in case player somehow skips a day? Safer check.
+      if (state.day >= state.loanDueDate) { 
+        loanMessages.push(`Loan payment of ${state.loanAmount}g is due!`);
+        if (state.gold >= state.loanAmount) {
+          dispatch({ type: 'SET_GOLD', payload: state.gold - state.loanAmount });
+          dispatch({ type: 'DECREASE_TOTAL_LOAN', payload: state.loanAmount }); // Decrease total owed
+          loanMessages.push(`Paid ${state.loanAmount}g loan payment. Phew!`);
+          nextLoanDueDate = state.loanDueDate + 7; // Set next due date relative to current due date
+        } else {
+          loanMessages.push(`Cannot pay ${state.loanAmount}g loan! You only have ${state.gold}g!`);
+          loanMessages.push(`GAME OVER - The loan sharks are coming...`);
+          triggerGameOver = true;
+        }
+      }
+    }
+    // --- End Loan Payment Check ---
+
+    // Add any loan messages BEFORE phase change messages
+    loanMessages.forEach(msg => dispatch({ type: 'ADD_DIALOGUE', payload: msg }));
+
+    // Trigger Game Over if necessary
+    if (triggerGameOver) {
+      dispatch({ type: 'SET_GAME_OVER' });
+      return; // Stop further phase advancement
+    }
+
+    // Update loan due date if it changed
+    if (nextLoanDueDate !== state.loanDueDate) {
+      dispatch({ type: 'SET_LOAN_DUE_DATE', payload: nextLoanDueDate });
+    }
+
+    // Advance Day/Phase
     dispatch({ type: 'SET_PHASE', payload: nextPhase });
     if (nextDay !== state.day) {
-      dispatch({ type: 'SET_DAY', payload: nextDay }); // Need to add SET_DAY action
+      dispatch({ type: 'SET_DAY', payload: nextDay });
     }
     dispatch({ type: 'ADD_DIALOGUE', payload: dialogueMessage });
+  };
+
+  // Shelf Upgrade Logic
+  const handleUpgradeShelf = () => {
+    // Calculate cost based on current number of shelves
+    const upgradeCost = state.shopShelves * 200; // Example cost scaling
+    if (state.gold >= upgradeCost) {
+      dispatch({ type: 'UPGRADE_SHELF', payload: upgradeCost }); // Need to add this action type
+    } else {
+      dispatch({ 
+        type: 'ADD_DIALOGUE', 
+        payload: `Not enough gold to upgrade shelf! Need ${upgradeCost}g.` 
+      });
+    }
   };
 
   // State for negotiation inputs
@@ -149,22 +236,26 @@ ${itemsForPrompt.map(i => `- ${i.name} (ID: ${i.id}, Asking: ${i.askingPrice}g, 
     const { customer, item, patience } = state.currentNegotiation; // Get patience
     // Use personalityTraits array
     const traitsStringCounter = customer.personalityTraits.join(', ');
+    // Include player reputation
     const systemPrompt = `You are ${customer.name}, ${customer.description}. Your personality traits are **${traitsStringCounter}**. 
+The shopkeeper's current reputation is ${state.reputation}. (Positive is good, negative is bad).
 You're negotiating for ${item.name} (Base Value: ${item.baseValue}g). 
 Your current patience level is ${patience} (starts around 5, decreases with each counter-offer).
 
 The shopkeeper countered with ${price}g (your previous offer was ${state.currentNegotiation.customerOffer}g).
 
-1. Consider your personality traits (${traitsStringCounter}) AND your current patience level (${patience}) to decide how to respond:
+1. Consider your personality traits (${traitsStringCounter}), your current patience level (${patience}), AND the shopkeeper's reputation (${state.reputation}) to decide how to respond:
    - Generous: More likely to accept or meet halfway, less affected by low patience.
    - Stingy: More likely to hold firm, low patience makes rejection likely.
    - Arrogant: Might insult or walk away if patience is low.
    - Impulsive: Might accept/reject suddenly, especially if patience is low.
    - Impatient: Will likely reject if patience is low (e.g., 1 or 0).
+   - Reputation Influence: If rep is high (>10), be slightly more willing to accept or counter generously. If rep is low (< -5), be slightly more likely to reject or counter poorly.
 2. If patience is 0, your decision MUST be 'reject'.
-3. Otherwise, make a counter-offer or accept/reject based on your personality and patience.
-4. Phrase a spoken response reflecting your personality and current mood (potentially influenced by patience).
-5. Respond ONLY in strict JSON format: { "spokenResponse": "Your dialogue...", "offer": number | null, "decision": "counter" | "accept" | "reject" }`;
+3. Otherwise, make a counter-offer ('counter'), accept the shopkeeper's price ('accept'), or reject the negotiation ('reject') based on your personality, patience, and reputation.
+4. **If making a counter-offer:** Your new 'offer' number MUST be higher than your previous offer (${state.currentNegotiation.customerOffer}g) but less than or equal to the shopkeeper's current asking price (${price}g). Aim for a logical step towards a potential agreement, influenced by your traits and reputation (e.g., stingy moves less, generous moves more, low rep might lead to smaller increases). If you cannot make a logical counter-offer in this range (e.g., your traits make you hold firm), you should 'reject'.
+5. Phrase a spoken response reflecting your personality and current mood (potentially influenced by patience and reputation).
+6. Respond ONLY in strict JSON format: { "spokenResponse": "Your dialogue...", "offer": number | null, "decision": "counter" | "accept" | "reject" }`;
 
     const messages = [
       { role: "system", content: systemPrompt },
@@ -176,10 +267,16 @@ The shopkeeper countered with ${price}g (your previous offer was ${state.current
 
     if (parsedResponse) {
       if (parsedResponse.decision === "accept") {
+        // Add dialogue for acceptance before dispatching ACCEPT_OFFER
+        // (ACCEPT_OFFER adds the "Sold..." message)
+        dispatch({ type: 'ADD_DIALOGUE', payload: `${customer.name}: ${parsedResponse.spokenResponse}` });
         dispatch({ type: 'ACCEPT_OFFER' });
       } else if (parsedResponse.decision === "reject") {
+        // Add the rejection dialogue FIRST, then end negotiation
+        dispatch({ type: 'ADD_DIALOGUE', payload: `${customer.name}: ${parsedResponse.spokenResponse}` });
         dispatch({ type: 'END_NEGOTIATION' });
       } else if (parsedResponse.decision === "counter" && parsedResponse.offer) {
+        // CUSTOMER_RESPONSE action already handles adding dialogue with offer
         dispatch({
           type: 'CUSTOMER_RESPONSE',
           payload: {
@@ -220,6 +317,11 @@ The shopkeeper countered with ${price}g (your previous offer was ${state.current
       {state.currentNegotiation ? (
         // Negotiation UI
         <>
+          {/* Display Customer Mood/Patience */}
+          <div style={{ textAlign: 'center', fontStyle: 'italic', color: COLORS.textLight }}>
+            Mood: {getPatienceDescription(state.currentNegotiation.patience, state.currentNegotiation.initialPatience)}
+          </div>
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: UI_PADDING }}>
             <input
               type="text"
@@ -320,20 +422,42 @@ The shopkeeper countered with ${price}g (your previous offer was ${state.current
             Next Customer
           </button>
 
-          <button 
+          <button
             onClick={handleAdvanceTime}
+            disabled={state.gameOver} // Disable if game over
             style={{
               padding: UI_PADDING,
               backgroundColor: COLORS.button,
               color: COLORS.panel,
               border: `1px solid ${COLORS.buttonStroke}`,
               borderRadius: 6,
-              cursor: 'pointer',
+              cursor: state.gameOver ? 'not-allowed' : 'pointer',
+              opacity: state.gameOver ? 0.5 : 1,
               fontWeight: 700
             }}
           >
-            Advance Time
+            {state.phase === 'selling' ? 'End Day' : 'Advance Time'} {/* Change button text */}
           </button>
+
+          {/* Add Upgrade Shelf button only during management phase */}
+          {state.phase === 'management' && (
+            <button
+              onClick={handleUpgradeShelf}
+              disabled={state.gameOver || state.gold < state.shopShelves * 200} // Disable if game over or cannot afford
+              style={{
+                padding: UI_PADDING,
+                backgroundColor: COLORS.button,
+                color: COLORS.panel,
+                border: `1px solid ${COLORS.buttonStroke}`,
+                borderRadius: 6,
+                cursor: (state.gameOver || state.gold < state.shopShelves * 200) ? 'not-allowed' : 'pointer',
+                opacity: (state.gameOver || state.gold < state.shopShelves * 200) ? 0.5 : 1,
+                fontWeight: 700
+              }}
+            >
+              Upgrade Shelf ({state.shopShelves * 200}g) {/* Show cost */}
+            </button>
+          )}
         </>
       )}
     </div>

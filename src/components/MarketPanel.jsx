@@ -1,5 +1,5 @@
 import { useGameState } from '../contexts/GameStateContext';
-import { COLORS, UI_PADDING, WHOLESALE_ITEMS } from '../gameState';
+import { COLORS, UI_PADDING, WHOLESALE_ITEMS, ITEM_TIERS } from '../gameState'; // Import ITEM_TIERS
 
 function MarketItem({ item }) {
   const { state, dispatch } = useGameState();
@@ -43,7 +43,22 @@ function MarketItem({ item }) {
   );
 }
 
+// Define reputation thresholds for tiers
+const TIER_THRESHOLDS = {
+  'Common': 0,
+  'Uncommon': 10,
+  'Rare': 25
+};
+
 export default function MarketPanel() {
+  const { state } = useGameState(); // Get game state for reputation
+
+  // Filter items based on player reputation
+  const availableItems = WHOLESALE_ITEMS.filter(item => {
+    const requiredRep = TIER_THRESHOLDS[item.tier] ?? 0; // Default to 0 if tier not found
+    return state.reputation >= requiredRep;
+  });
+
   return (
     <div style={{
       flex: 0.65, // Match Shelf flex value
@@ -58,12 +73,16 @@ export default function MarketPanel() {
       <h3 style={{ 
         marginTop: 0, 
         fontFamily: "'Cinzel Decorative', serif", 
-        color: COLORS.textGold 
-      }}>Wholesale Market</h3>
+        color: COLORS.textGold
+      }}>Wholesale Market (Rep: {state.reputation})</h3> {/* Optionally display rep */}
       <div>
-        {WHOLESALE_ITEMS.map((item) => (
-          <MarketItem key={item.id} item={item} />
-        ))}
+        {availableItems.length > 0 ? (
+          availableItems.map((item) => (
+            <MarketItem key={item.id} item={item} />
+          ))
+        ) : (
+          <p style={{ color: COLORS.textLight, fontStyle: 'italic' }}>No items available at your current reputation level.</p>
+        )}
       </div>
     </div>
   );

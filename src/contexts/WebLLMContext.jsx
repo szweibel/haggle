@@ -8,7 +8,8 @@ const WebLLMContext = createContext();
 let isInitializing = false;
 let engineInstance = null;
 
-export function WebLLMProvider({ children }) {
+// Accept startLoading prop
+export function WebLLMProvider({ children, startLoading }) { 
   const { dispatch } = useGameState(); // Get dispatch from GameStateContext
   const [engine, setEngine] = useState(engineInstance); // Use global instance if available
   const [loading, setLoading] = useState(false);
@@ -16,33 +17,45 @@ export function WebLLMProvider({ children }) {
 
   useEffect(() => {
     async function initWebLLM() {
-      // Prevent multiple initializations
-      if (initialized || isInitializing || engineInstance) {
+      // Prevent multiple initializations OR if consent not given yet
+      if (!startLoading || initialized || isInitializing || engineInstance) { 
         if (engineInstance && !engine) setEngine(engineInstance); // Ensure state syncs if already initialized
         return;
       }
       
       isInitializing = true;
       setLoading(true);
-      dispatch({ type: 'ADD_DIALOGUE', payload: 'Loading AI model...' });
+      // Use SET_WEBLLM_STATUS for initial message
+      dispatch({ type: 'SET_WEBLLM_STATUS', payload: 'Initializing AI Engine...' }); 
       console.log("Attempting to initialize WebLLM...");
+
+      // Define the progress callback
+      const progressCallback = (report) => {
+        console.log("WebLLM Progress:", report);
+        // Dispatch status updates to game state
+        dispatch({ type: 'SET_WEBLLM_STATUS', payload: report.text }); 
+      };
 
       try {
         const worker = new Worker(new URL('../workers/llm.worker.js', import.meta.url), {
           type: 'module'
         });
+        // Pass the callback to CreateWebWorkerMLCEngine
         const createdEngine = await CreateWebWorkerMLCEngine(
           worker,
-          "Llama-3.1-8B-Instruct-q4f32_1-MLC"
+          "Llama-3.1-8B-Instruct-q4f32_1-MLC",
+          { initProgressCallback: progressCallback } // Engine options
         );
         
         engineInstance = createdEngine; // Store globally
         setEngine(createdEngine);
         setInitialized(true);
-        dispatch({ type: 'ADD_DIALOGUE', payload: 'AI model ready!' });
+        // Update status one last time
+        dispatch({ type: 'SET_WEBLLM_STATUS', payload: 'AI model ready!' }); 
         console.log("WebLLM initialized successfully.");
       } catch (error) {
-        dispatch({ type: 'ADD_DIALOGUE', payload: `AI initialization error: ${error.message}` });
+        // Update status on error
+        dispatch({ type: 'SET_WEBLLM_STATUS', payload: `AI Error: ${error.message}` }); 
         console.error("WebLLM initialization failed:", error);
       } finally {
         setLoading(false);
@@ -59,7 +72,7 @@ export function WebLLMProvider({ children }) {
     //   setInitialized(false);
     //   console.log("WebLLM terminated.");
     // };
-  }, [dispatch, initialized, engine]); // Rerun if dispatch changes or if engine state needs sync
+  }, [dispatch, initialized, engine, startLoading]); // Add startLoading to dependencies
 
   // Memoize generateResponse to prevent unnecessary re-renders
   // Updated signature to accept messages array and optional responseFormat
