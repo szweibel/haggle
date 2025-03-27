@@ -81,13 +81,14 @@ ${itemsForPrompt.map(i => `- ${i.name} (ID: ${i.id}, Asking: ${i.askingPrice}g, 
 
 1. Choose ONE item from the list that interests you based on your personality traits (${traitsString}) and preferences (Interests: ${customer.interests.join(', ')}). Consider items roughly within your budget.
 2. Calculate an initial offer price for that item based *strongly* on your personality traits (${traitsString}) and the item's Base Value (${itemsForPrompt.map(i => `${i.name}: ${i.baseValue}g`).join(', ')}), NOT the asking price. **Subtly adjust this initial offer based on the shopkeeper's reputation:** slightly higher if rep is good (e.g., >10), slightly lower if rep is bad (e.g., < -5).
-   - Generous: ~80-110% of Base Value.
+   - Generous: ~80-105% of Base Value (rarely over 100%).
    - Stingy/Frugal: ~40-60% of Base Value.
    - Arrogant: Dismissively low, maybe ~30-50% of Base Value.
-   - Impulsive: Can be slightly high or low, ~70-120% of Base Value.
+   - Impulsive: Can be slightly high or low, ~70-110% of Base Value.
    - Default: Reasonably below Base Value, ~60-80%.
-3. Ensure your offer is an integer and within your budget (${customer.budget}g). If your calculated offer is over budget, offer your max budget or slightly less. If no item's calculated offer is feasible within budget, you might state you can't afford anything right now (use decision "leave").
-4. Phrase a spoken response ("spokenResponse") reflecting your personality, mentioning the item you chose, and making your offer clearly. Do NOT mention the 'Base Value' or your calculation process in the spoken response.
+   **Generally, your initial offer should be at or below the item's Base Value unless your traits strongly justify otherwise (like generous/impulsive).**
+3. Ensure your offer is an integer and within your budget (${customer.budget}g). If your calculated offer is over budget, offer your max budget or slightly less. If no item's calculated offer is feasible within budget, you must use decision "leave".
+4. Phrase a spoken response ("spokenResponse") reflecting your personality, mentioning the item name you chose, and making your offer clearly. **Crucially, do NOT mention the Item ID, Base Value, Asking Price, or your calculation process in your spokenResponse.** Only include natural dialogue.
 5. Respond ONLY in strict JSON format: { "spokenResponse": "Your dialogue here...", "offer": number | null, "itemId": "instanceId_of_chosen_item" | null, "decision": "initial_offer" | "leave" }`;
 
     const messages = [

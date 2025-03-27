@@ -235,7 +235,17 @@ function gameReducer(state, action) {
       const newDisplayedItems = state.displayedItems.filter(
         i => i.instanceId !== item.instanceId
       );
-      const reputationChange = +1; // Gain reputation on successful sale
+
+      // Calculate reputation change based on deal quality
+      let reputationChange = 0;
+      const ratio = customerOffer / (item.baseValue || 1); // Avoid division by zero if baseValue is missing/0
+      if (ratio < 0.8) { // Bad Deal for player
+        reputationChange = 1; 
+      } else if (ratio >= 0.8 && ratio < 1.2) { // Fair Deal
+        reputationChange = 0; 
+      } else { // Good Deal for player
+        reputationChange = 0;
+      }
       
       return {
         ...state,
@@ -245,7 +255,8 @@ function gameReducer(state, action) {
         reputation: state.reputation + reputationChange, // Update reputation
         dialogue: [
           ...state.dialogue,
-          `Sold ${item.name} for ${customerOffer}g! (+${reputationChange} Rep)`
+          // Update dialogue to show correct rep change (or lack thereof)
+          `Sold ${item.name} for ${customerOffer}g! ${reputationChange > 0 ? `(+${reputationChange} Rep)` : reputationChange < 0 ? `(${reputationChange} Rep)`: '(0 Rep)'}`
         ]
       };
     }
@@ -275,10 +286,10 @@ function gameReducer(state, action) {
         ...state,
         currentNegotiation: null,
         reputation: state.reputation + reputationChange, // Update reputation
-        // Dialogue for rejection/patience running out is handled elsewhere
         dialogue: [
           ...state.dialogue,
-          `Negotiation ended.` // Simple message
+          // Add customer name and rep change to the message
+          `${state.currentNegotiation.customer?.name || 'The customer'} leaves in frustration. (${reputationChange} Rep)` 
         ]
       };
     }

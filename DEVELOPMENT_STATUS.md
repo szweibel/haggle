@@ -43,9 +43,10 @@ The basic structure of the day/phase cycle and the core negotiation loop is impl
 *   **Phase Management:** Day cycles through `management` -> `setting up` -> `selling` phases via "Advance Time" button.
 *   **Buying:** Player can buy `WHOLESALE_ITEMS` during `management` phase (`MarketPanel`). Items added to `inventory`.
 *   **Stocking:** Player can drag items from `Inventory` to `Shelf` during `setting up` phase (`react-dnd`). Items moved to `displayedItems`.
-*   **Selling/Negotiation:** Core loop with AI integration for offers and counter-offers using JSON mode.
-*   **Reputation System:** Tracked (+1 on sale, -1 on fail/walk away). Displayed in UI. AI prompts (`Controls.jsx`) updated to consider reputation, subtly influencing initial offers and negotiation stance (higher rep = slightly better offers/easier negotiation, lower rep = vice versa).
-*   **Mood/Patience System:** Tracked per negotiation, initialized by traits, decreases on counters, influences AI prompt, ends negotiation at 0. Displayed descriptively in UI.
+*   **Selling/Negotiation:** Core loop with AI integration for offers and counter-offers using JSON mode. Dialogue now includes explicit offer amounts. AI rejection/patience timeout messages improved.
+*   **Reputation System:** Tracked (+1 on low-ball accepted sale, 0 on fair/good sale, -1 on fail/walk away). Displayed in UI. AI prompts (`Controls.jsx`) updated to consider reputation, subtly influencing initial offers and negotiation stance.
+*   **Mood/Patience System:** Tracked per negotiation, initialized by traits, decreases on counters, influences AI prompt (including mandatory rejection at 0), ends negotiation at 0. Displayed descriptively in UI.
+*   **AI Prompt Tuning:** Refined prompts to guide AI towards more realistic initial offers (generally <= Base Value) and explicitly forbid mentioning internal data (IDs, Base Value, etc.) in dialogue.
 *   **Loan System:** Weekly payment automatically attempted, triggers game over on failure, updates due date on success. Amount and due date displayed in UI.
 *   **Shelf Upgrade System:** Button available in `management` phase, increases `shopShelves` state, deducts scaling gold cost. Capacity displayed in UI.
 *   **Item Tiers & Market Gating:** Items have Common/Uncommon/Rare tiers. `MarketPanel` filters available items based on player `reputation`.
