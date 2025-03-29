@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { useGameState } from '../contexts/GameStateContext';
 import { useWebLLMContext } from '../contexts/WebLLMContext';
-import { COLORS, UI_PADDING, CUSTOMER_TYPES } from '../gameState';
+// Removed COLORS, UI_PADDING import
+import { CUSTOMER_TYPES } from '../gameState';
+// Removed import of ShopLayout styles
+import styles from './Controls.module.css'; // Import component-specific styles
 
 // Helper function to get patience description
 function getPatienceDescription(current, initial) {
-  if (current === undefined || initial === undefined) return ''; 
+  if (current === undefined || initial === undefined) return '';
   const ratio = current / initial;
   if (ratio >= 0.8) return 'Patient';
   if (ratio >= 0.5) return 'Considering';
@@ -14,7 +17,8 @@ function getPatienceDescription(current, initial) {
   return 'Livid!'; // Should ideally not be seen as negotiation ends at 0
 }
 
-export default function Controls() {
+// Accept className as a prop
+export default function Controls({ className }) {
   const { state, dispatch } = useGameState();
   const { generateResponse, loading: webLLMLoading } = useWebLLMContext(); // Use context hook
 
@@ -33,27 +37,56 @@ export default function Controls() {
     return CUSTOMER_TYPES.filter(customer => customer.tier <= maxTier);
   }
 
+  // Pool of minor random traits to add flavor
+  const MINOR_TRAITS = ['in a hurry', 'distracted', 'cheerful', 'grumpy', 'curious', 'suspicious', 'talkative', 'quiet'];
+
   const handleNextCustomer = async () => {
     // Add check for webLLMLoading
-    if (state.displayedItems.length === 0 || webLLMLoading) return; 
-    
+    if (state.displayedItems.length === 0 || webLLMLoading) return;
+
     // Get eligible customers based on reputation
     const eligibleCustomers = getEligibleCustomers(state.reputation);
     if (eligibleCustomers.length === 0) {
       console.error("No eligible customers found for current reputation:", state.reputation);
       // Maybe add dialogue? "No customers seem interested in your shop today."
-      return; 
+      return;
     }
-    // Select a random customer from the eligible list
-    const customer = eligibleCustomers[Math.floor(Math.random() * eligibleCustomers.length)];
+    // Select a random base customer type from the eligible list
+    const baseCustomer = eligibleCustomers[Math.floor(Math.random() * eligibleCustomers.length)];
 
-    dispatch({ 
-      type: 'SET_CUSTOMER', 
-      payload: customer 
+    // --- Apply Random Variations ---
+    // 1. Budget Variation (+/- 15%)
+    const budgetVariation = (Math.random() * 0.30) - 0.15; // Random number between -0.15 and +0.15
+    const randomizedBudget = Math.max(10, Math.round(baseCustomer.budget * (1 + budgetVariation))); // Ensure budget is at least 10
+
+    // 2. Add one minor random trait (ensure it's not already present)
+    let randomTrait = null;
+    const potentialTraits = MINOR_TRAITS.filter(trait => !baseCustomer.personalityTraits.includes(trait));
+    if (potentialTraits.length > 0) {
+      randomTrait = potentialTraits[Math.floor(Math.random() * potentialTraits.length)];
+    }
+    const randomizedTraits = [...baseCustomer.personalityTraits];
+    if (randomTrait) {
+      randomizedTraits.push(randomTrait);
+    }
+
+    // Create the actual customer instance for this encounter
+    const customerInstance = {
+      ...baseCustomer,
+      budget: randomizedBudget,
+      personalityTraits: randomizedTraits,
+      // Could add description variations here too if desired
+    };
+    // --- End Random Variations ---
+
+
+    dispatch({
+      type: 'SET_CUSTOMER',
+      payload: customerInstance // Use the randomized instance
     });
-    dispatch({ 
-      type: 'ADD_DIALOGUE', 
-      payload: `${customer.name} enters the shop!`
+    dispatch({
+      type: 'ADD_DIALOGUE',
+      payload: `${customerInstance.name} enters the shop!` // Use instance name
     });
 
     // --- Prepare for JSON mode ---
@@ -61,25 +94,27 @@ export default function Controls() {
       id: item.instanceId, // Use instanceId for unique identification
       name: item.name,
       askingPrice: item.askingPrice || Math.round(item.baseValue * 1.5), // Use askingPrice or calculate fallback
-      baseValue: item.baseValue 
+      baseValue: item.baseValue
     }));
 
     if (itemsForPrompt.length === 0) {
-        dispatch({ type: 'ADD_DIALOGUE', payload: `${customer.name} looks around, but sees nothing on the shelves.` });
+        // Use customerInstance here
+        dispatch({ type: 'ADD_DIALOGUE', payload: `${customerInstance.name} looks around, but sees nothing on the shelves.` });
         dispatch({ type: 'SET_CUSTOMER', payload: null }); // No customer if nothing to buy
         return;
     }
 
-    // Use personalityTraits array
-    const traitsString = customer.personalityTraits.join(', ');
+    // Use randomized personalityTraits array
+    const traitsString = customerInstance.personalityTraits.join(', ');
     // Include player reputation in the context
-    const systemPrompt = `You are ${customer.name}, ${customer.description}. Your personality traits are **${traitsString}**. Your budget is ${customer.budget}g.
+    // Use randomized budget and traits in the prompt
+    const systemPrompt = `You are ${customerInstance.name}, ${customerInstance.description}. Your personality traits are **${traitsString}**. Your budget is ${customerInstance.budget}g.
 The shopkeeper's current reputation is ${state.reputation}. (Positive is good, negative is bad).
 
 You see the following items for sale:
 ${itemsForPrompt.map(i => `- ${i.name} (ID: ${i.id}, Asking: ${i.askingPrice}g, Base Value: ${i.baseValue}g)`).join('\n')}
 
-1. Choose ONE item from the list that interests you based on your personality traits (${traitsString}) and preferences (Interests: ${customer.interests.join(', ')}). Consider items roughly within your budget.
+1. Choose ONE item from the list that interests you based on your personality traits (${traitsString}) and preferences (Interests: ${customerInstance.interests.join(', ')}). Consider items roughly within your budget.
 2. Calculate an initial offer price for that item based *strongly* on your personality traits (${traitsString}) and the item's Base Value (${itemsForPrompt.map(i => `${i.name}: ${i.baseValue}g`).join(', ')}), NOT the asking price. **Subtly adjust this initial offer based on the shopkeeper's reputation:** slightly higher if rep is good (e.g., >10), slightly lower if rep is bad (e.g., < -5).
    - Generous: ~80-105% of Base Value (rarely over 100%).
    - Stingy/Frugal: ~40-60% of Base Value.
@@ -87,7 +122,7 @@ ${itemsForPrompt.map(i => `- ${i.name} (ID: ${i.id}, Asking: ${i.askingPrice}g, 
    - Impulsive: Can be slightly high or low, ~70-110% of Base Value.
    - Default: Reasonably below Base Value, ~60-80%.
    **Generally, your initial offer should be at or below the item's Base Value unless your traits strongly justify otherwise (like generous/impulsive).**
-3. Ensure your offer is an integer and within your budget (${customer.budget}g). If your calculated offer is over budget, offer your max budget or slightly less. If no item's calculated offer is feasible within budget, you must use decision "leave".
+3. Ensure your offer is an integer and within your budget (${customerInstance.budget}g). If your calculated offer is over budget, offer your max budget or slightly less. If no item's calculated offer is feasible within budget, you must use decision "leave".
 4. Phrase a spoken response ("spokenResponse") reflecting your personality, mentioning the item name you chose, and making your offer clearly. **Crucially, do NOT mention the Item ID, Base Value, Asking Price, or your calculation process in your spokenResponse.** Only include natural dialogue.
 5. Respond ONLY in strict JSON format: { "spokenResponse": "Your dialogue here...", "offer": number | null, "itemId": "instanceId_of_chosen_item" | null, "decision": "initial_offer" | "leave" }`;
 
@@ -97,35 +132,38 @@ ${itemsForPrompt.map(i => `- ${i.name} (ID: ${i.id}, Asking: ${i.askingPrice}g, 
     ];
 
     const responseFormat = { type: "json_object" };
-    const parsedResponse = await generateResponse(messages, customer.name, responseFormat);
+    // Pass the instance name for logging/context if needed
+    const parsedResponse = await generateResponse(messages, customerInstance.name, responseFormat);
 
     if (parsedResponse && parsedResponse.decision === "initial_offer" && parsedResponse.itemId && parsedResponse.offer != null) {
       const chosenItem = state.displayedItems.find(item => item.instanceId === parsedResponse.itemId);
-      
+
       if (chosenItem) {
-        // Add dialogue first, including the offer
-        dispatch({ type: 'ADD_DIALOGUE', payload: `${customer.name}: ${parsedResponse.spokenResponse} (Offers ${parsedResponse.offer}g)` });
+        // Add dialogue first, including the offer - Use customerInstance here
+        dispatch({ type: 'ADD_DIALOGUE', payload: `${customerInstance.name}: ${parsedResponse.spokenResponse} (Offers ${parsedResponse.offer}g)` });
         // Start negotiation state
-        dispatch({ 
-          type: 'START_NEGOTIATION', 
-          payload: { 
+        dispatch({
+          type: 'START_NEGOTIATION',
+          payload: {
             item: chosenItem,
-            customer: customer,
+            customer: customerInstance, // Pass the randomized instance
             customerOffer: parsedResponse.offer,
             spokenResponse: parsedResponse.spokenResponse // Add spoken response to payload
           }
         });
       } else {
-         dispatch({ type: 'ADD_DIALOGUE', payload: `${customer.name} seems confused about an item.` });
+         // Use customerInstance here
+         dispatch({ type: 'ADD_DIALOGUE', payload: `${customerInstance.name} seems confused about an item.` });
          console.error("AI chose an item ID not found on shelves:", parsedResponse.itemId);
       }
     } else if (parsedResponse && parsedResponse.decision === "leave") {
-       dispatch({ type: 'ADD_DIALOGUE', payload: `${customer.name}: ${parsedResponse.spokenResponse || "Changed my mind."}` });
+       dispatch({ type: 'ADD_DIALOGUE', payload: `${customerInstance.name}: ${parsedResponse.spokenResponse || "Changed my mind."}` });
        dispatch({ type: 'SET_CUSTOMER', payload: null }); // Customer leaves
     } else {
       // Handle cases where AI response is invalid or doesn't make an offer
-      dispatch({ type: 'ADD_DIALOGUE', payload: `${customer.name} looks around indecisively.` });
-      // Keep customer for now, maybe retry or let player advance time?
+      dispatch({ type: 'ADD_DIALOGUE', payload: `${customerInstance.name} looks around indecisively.` });
+      // Clear customer state if AI response is invalid
+      dispatch({ type: 'SET_CUSTOMER', payload: null }); 
       console.error("Invalid or non-offer response from AI:", parsedResponse);
     }
   };
@@ -156,7 +194,7 @@ ${itemsForPrompt.map(i => `- ${i.name} (ID: ${i.id}, Asking: ${i.askingPrice}g, 
 
     if (state.phase === 'selling') { // Check happens when transitioning FROM selling
       // Use >= in case player somehow skips a day? Safer check.
-      if (state.day >= state.loanDueDate) { 
+      if (state.day >= state.loanDueDate) {
         loanMessages.push(`Loan payment of ${state.loanAmount}g is due!`);
         if (state.gold >= state.loanAmount) {
           dispatch({ type: 'SET_GOLD', payload: state.gold - state.loanAmount });
@@ -201,9 +239,9 @@ ${itemsForPrompt.map(i => `- ${i.name} (ID: ${i.id}, Asking: ${i.askingPrice}g, 
     if (state.gold >= upgradeCost) {
       dispatch({ type: 'UPGRADE_SHELF', payload: upgradeCost }); // Need to add this action type
     } else {
-      dispatch({ 
-        type: 'ADD_DIALOGUE', 
-        payload: `Not enough gold to upgrade shelf! Need ${upgradeCost}g.` 
+      dispatch({
+        type: 'ADD_DIALOGUE',
+        payload: `Not enough gold to upgrade shelf! Need ${upgradeCost}g.`
       });
     }
   };
@@ -215,7 +253,7 @@ ${itemsForPrompt.map(i => `- ${i.name} (ID: ${i.id}, Asking: ${i.askingPrice}g, 
   // Handler for submitting player's negotiation response
   const handleSendResponse = async () => {
     if (!state.currentNegotiation || playerPrice === '') return;
-    
+
     const price = Number(playerPrice);
     if (isNaN(price)) {
       dispatch({ type: 'ADD_DIALOGUE', payload: "Please enter a valid price number!" });
@@ -234,13 +272,14 @@ ${itemsForPrompt.map(i => `- ${i.name} (ID: ${i.id}, Asking: ${i.askingPrice}g, 
     console.log('PLAYER_RESPONSE dispatched');
 
     // Get AI response
-    const { customer, item, patience } = state.currentNegotiation; // Get patience
-    // Use personalityTraits array
-    const traitsStringCounter = customer.personalityTraits.join(', ');
+    const { customer: currentCustomerInstance, item, patience } = state.currentNegotiation; // Get customer instance
+    // Use personalityTraits array from the instance
+    const traitsStringCounter = currentCustomerInstance.personalityTraits.join(', ');
     // Include player reputation
-    const systemPrompt = `You are ${customer.name}, ${customer.description}. Your personality traits are **${traitsStringCounter}**. 
+    // Use instance name, description, traits, budget
+    const systemPrompt = `You are ${currentCustomerInstance.name}, ${currentCustomerInstance.description}. Your personality traits are **${traitsStringCounter}**.
 The shopkeeper's current reputation is ${state.reputation}. (Positive is good, negative is bad).
-You're negotiating for ${item.name} (Base Value: ${item.baseValue}g). 
+You're negotiating for ${item.name} (Base Value: ${item.baseValue}g).
 Your current patience level is ${patience} (starts around 5, decreases with each counter-offer).
 
 The shopkeeper countered with ${price}g (your previous offer was ${state.currentNegotiation.customerOffer}g).
@@ -264,17 +303,18 @@ The shopkeeper countered with ${price}g (your previous offer was ${state.current
     ];
 
     const responseFormat = { type: "json_object" };
-    const parsedResponse = await generateResponse(messages, customer.name, responseFormat);
+    // Pass instance name
+    const parsedResponse = await generateResponse(messages, currentCustomerInstance.name, responseFormat);
 
     if (parsedResponse) {
       if (parsedResponse.decision === "accept") {
         // Add dialogue for acceptance before dispatching ACCEPT_OFFER
         // (ACCEPT_OFFER adds the "Sold..." message)
-        dispatch({ type: 'ADD_DIALOGUE', payload: `${customer.name}: ${parsedResponse.spokenResponse}` });
+        dispatch({ type: 'ADD_DIALOGUE', payload: `${currentCustomerInstance.name}: ${parsedResponse.spokenResponse}` });
         dispatch({ type: 'ACCEPT_OFFER' });
       } else if (parsedResponse.decision === "reject") {
         // Add the rejection dialogue FIRST, then end negotiation
-        dispatch({ type: 'ADD_DIALOGUE', payload: `${customer.name}: ${parsedResponse.spokenResponse}` });
+        dispatch({ type: 'ADD_DIALOGUE', payload: `${currentCustomerInstance.name}: ${parsedResponse.spokenResponse}` });
         dispatch({ type: 'END_NEGOTIATION' });
       } else if (parsedResponse.decision === "counter" && parsedResponse.offer) {
         // CUSTOMER_RESPONSE action already handles adding dialogue with offer
@@ -304,160 +344,146 @@ The shopkeeper countered with ${price}g (your previous offer was ${state.current
     dispatch({ type: 'END_NEGOTIATION' });
   };
 
+  // Combine passed className
+  const combinedClassName = `${className || ''}`;
+
+  // Helper function to get button class names
+  const getButtonClasses = (isDisabled = false, isFullWidth = false) => {
+    return `
+      ${styles.button}
+      ${isDisabled ? styles.buttonDisabled : ''}
+      ${isFullWidth ? styles.fullWidthButton : ''}
+    `.trim();
+  };
+
   return (
-    <div style={{
-      flex: 0.35,
-      backgroundColor: COLORS.panel,
-      borderRadius: 8,
-      border: `1px solid ${COLORS.panelStroke}`,
-      padding: UI_PADDING,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: UI_PADDING
-    }}>
+    // Apply combined className from props and internal container style
+    <div className={`${combinedClassName} ${styles.controlsContainer}`}>
       {state.currentNegotiation ? (
         // Negotiation UI
         <>
-          {/* Display Customer Mood/Patience */}
-          <div style={{ textAlign: 'center', fontStyle: 'italic', color: COLORS.textLight }}>
-            Mood: {getPatienceDescription(state.currentNegotiation.patience, state.currentNegotiation.initialPatience)}
+          {/* Apply mood text style */}
+          <div className={styles.moodText}>
+            Customer Mood: {getPatienceDescription(state.currentNegotiation.patience, state.currentNegotiation.initialPatience)}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: UI_PADDING }}>
+          {/* Apply negotiation inputs container style */}
+          <div className={styles.negotiationInputs}>
+            {/* Apply input field style */}
             <input
               type="text"
               value={playerText}
               onChange={(e) => setPlayerText(e.target.value)}
               placeholder="Your response..."
-              style={{
-                padding: UI_PADDING,
-                borderRadius: 4,
-                border: `1px solid ${COLORS.panelStroke}`
-              }}
+              className={styles.inputField}
             />
+            {/* Apply input field style */}
             <input
               type="number"
               value={playerPrice}
               onChange={(e) => setPlayerPrice(e.target.value)}
               placeholder="Your offer (gold)"
-              style={{
-                padding: UI_PADDING,
-                borderRadius: 4,
-                border: `1px solid ${COLORS.panelStroke}`
-              }}
+              className={styles.inputField}
             />
           </div>
 
-          <div style={{ display: 'flex', gap: UI_PADDING }}>
-            <button 
+          {/* Apply button row style */}
+          <div className={styles.buttonRow}>
+            {/* Apply button styles */}
+            <button
               onClick={handleSendResponse}
               disabled={playerPrice === '' || webLLMLoading}
-              style={{
-                flex: 1,
-                padding: UI_PADDING,
-                backgroundColor: COLORS.button,
-                color: COLORS.panel,
-                border: `1px solid ${COLORS.buttonStroke}`,
-                borderRadius: 6,
-                cursor: playerPrice === '' ? 'not-allowed' : 'pointer',
-                opacity: playerPrice === '' ? 0.5 : 1,
-                fontWeight: 700
-              }}
+              className={getButtonClasses(playerPrice === '' || webLLMLoading)}
             >
               Send Response
             </button>
           </div>
 
-          <div style={{ display: 'flex', gap: UI_PADDING }}>
+          {/* Apply button row style */}
+          <div className={styles.buttonRow}>
+            {/* Apply button styles */}
             <button
               onClick={handleAcceptOffer}
               disabled={!state.currentNegotiation?.customerOffer}
-              style={{
-                flex: 1,
-                padding: UI_PADDING,
-                backgroundColor: COLORS.button,
-                color: COLORS.panel,
-                border: `1px solid ${COLORS.buttonStroke}`,
-                borderRadius: 6,
-                cursor: 'pointer',
-                fontWeight: 700
-              }}
+              className={getButtonClasses(!state.currentNegotiation?.customerOffer)}
             >
               Accept {state.currentNegotiation?.customerOffer}g
             </button>
 
+            {/* Apply button styles */}
             <button
               onClick={handleWalkAway}
-              style={{
-                flex: 1,
-                padding: UI_PADDING,
-                backgroundColor: COLORS.button,
-                color: COLORS.panel,
-                border: `1px solid ${COLORS.buttonStroke}`,
-                borderRadius: 6,
-                cursor: 'pointer',
-                fontWeight: 700
-              }}
+              className={getButtonClasses()} // Not disabled
             >
               Walk Away
             </button>
           </div>
         </>
       ) : (
-        // Normal controls
+        // Normal controls - Render based on phase
         <>
-          <button 
-            onClick={handleNextCustomer}
-            disabled={state.phase !== 'selling' || state.displayedItems.length === 0 || webLLMLoading} 
-            style={{
-              padding: UI_PADDING,
-              backgroundColor: COLORS.button,
-              color: COLORS.panel,
-              border: `1px solid ${COLORS.buttonStroke}`,
-              borderRadius: 6,
-              cursor: (state.phase !== 'selling' || state.displayedItems.length === 0 || webLLMLoading) ? 'not-allowed' : 'pointer',
-              opacity: (state.phase !== 'selling' || state.displayedItems.length === 0 || webLLMLoading) ? 0.5 : 1,
-              fontWeight: 700
-            }}
-          >
-            Next Customer
-          </button>
+          {/* Selling Phase Controls */}
+          {state.phase === 'selling' && (
+            <>
+              {/* Apply button styles */}
+              <button
+                onClick={handleNextCustomer}
+                // Disable if shelf empty, AI loading, game over, OR negotiation active
+                disabled={state.displayedItems.length === 0 || webLLMLoading || state.gameOver || !!state.currentNegotiation}
+                className={getButtonClasses(state.displayedItems.length === 0 || webLLMLoading || state.gameOver || !!state.currentNegotiation)}
+              >
+                Next Customer
+              </button>
+              {/* Apply button styles */}
+              <button
+                onClick={handleAdvanceTime} // Ends the day
+                disabled={state.gameOver}
+                className={getButtonClasses(state.gameOver)}
+              >
+                End Day
+              </button>
+            </>
+          )}
 
-          <button
-            onClick={handleAdvanceTime}
-            disabled={state.gameOver} // Disable if game over
-            style={{
-              padding: UI_PADDING,
-              backgroundColor: COLORS.button,
-              color: COLORS.panel,
-              border: `1px solid ${COLORS.buttonStroke}`,
-              borderRadius: 6,
-              cursor: state.gameOver ? 'not-allowed' : 'pointer',
-              opacity: state.gameOver ? 0.5 : 1,
-              fontWeight: 700
-            }}
-          >
-            {state.phase === 'selling' ? 'End Day' : 'Advance Time'} {/* Change button text */}
-          </button>
+          {/* Setting Up Phase Controls */}
+          {state.phase === 'setting up' && (
+            <> {/* Correct fragment usage */}
+              <button
+                onClick={handleAdvanceTime} // Opens the shop
+                disabled={state.gameOver || state.displayedItems.length === 0}
+                className={getButtonClasses(state.gameOver || state.displayedItems.length === 0, true)} // Pass true for full width
+              >
+                {/* Conditionally change button text */}
+                {state.displayedItems.length === 0 && !state.gameOver
+                  ? "(Place items on shelf first)"
+                  : "Open Shop"}
+              </button>
+            </>
+          )}
 
-          {/* Add Upgrade Shelf button only during management phase */}
+          {/* Management Phase Controls */}
           {state.phase === 'management' && (
-            <button
-              onClick={handleUpgradeShelf}
-              disabled={state.gameOver || state.gold < state.shopShelves * 200} // Disable if game over or cannot afford
-              style={{
-                padding: UI_PADDING,
-                backgroundColor: COLORS.button,
-                color: COLORS.panel,
-                border: `1px solid ${COLORS.buttonStroke}`,
-                borderRadius: 6,
-                cursor: (state.gameOver || state.gold < state.shopShelves * 200) ? 'not-allowed' : 'pointer',
-                opacity: (state.gameOver || state.gold < state.shopShelves * 200) ? 0.5 : 1,
-                fontWeight: 700
-              }}
-            >
-              Upgrade Shelf ({state.shopShelves * 200}g) {/* Show cost */}
-            </button>
+            <>
+              {/* Apply button styles */}
+              <button
+                onClick={handleAdvanceTime} // Starts the next day (setting up phase)
+                disabled={state.gameOver || state.inventory.length === 0}
+                className={getButtonClasses(state.gameOver || state.inventory.length === 0)}
+              >
+                {/* Conditionally change button text */}
+                {state.inventory.length === 0 && !state.gameOver
+                  ? "(Buy items first)"
+                  : "Start Next Day"}
+              </button>
+              {/* Apply button styles */}
+              <button
+                onClick={handleUpgradeShelf}
+                disabled={state.gameOver || state.gold < state.shopShelves * 200}
+                className={getButtonClasses(state.gameOver || state.gold < state.shopShelves * 200)}
+              >
+                Upgrade Shelf ({state.shopShelves * 200}g)
+              </button>
+            </>
           )}
         </>
       )}

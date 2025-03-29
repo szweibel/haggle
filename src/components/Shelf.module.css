@@ -1,0 +1,31 @@
+/* Inherits variables like --ui-padding, --color-text-gold, --color-text, --color-panel-stroke from ShopLayout.module.css or :root */
+
+.shelfTitle {
+  margin-top: 0;
+  font-family: 'Cinzel Decorative', serif; /* Keep specific font */
+  color: var(--color-text-gold); /* Use CSS variable */
+}
+
+.itemsContainer {
+  display: flex;
+  flex-wrap: wrap; /* Allow items to wrap into multiple rows */
+  gap: var(--ui-padding); /* Use CSS variable for spacing */
+  align-content: flex-start; /* Stack rows from the top */
+  flex-grow: 1; /* Allow container to take available space */
+  /* Removed overflow-y: auto; scrolling handled by parent panel */
+}
+
+.shelfItem {
+  width: 80px; /* Fixed width for slot */
+  height: 100px; /* Fixed height for slot */
+  background-color: #D0C6AE; /* Slightly darker background for slot */
+  color: var(--color-text); /* Use CSS variable */
+  border-radius: 4px;
+  border: 1px solid var(--color-panel-stroke); /* Use CSS variable */
+  display: flex; /* Use flexbox for centering */
+  align-items: center; /* Center text vertically */
+  justify-content: center; /* Center text horizontally */
+  text-align: center; /* Ensure text wraps centrally if needed */
+  padding: calc(var(--ui-padding) / 4); /* Smaller padding inside slot */
+  box-sizing: border-box; /* Include padding/border in size */
+}

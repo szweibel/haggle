@@ -74,6 +74,96 @@ export const CUSTOMER_TYPES = [
     budget: 400, // Lowered significantly
     interests: ['armor', 'weapon', 'misc'], // Added misc interest
     tier: 2 // Rare customer
+  },
+  // --- NEW TIER 0 ---
+  {
+    name: 'City Guard',
+    description: "an off-duty member of the city watch, looking weary",
+    personalityTraits: ['dutiful', 'observant', 'weary', 'fair', 'slightly suspicious'],
+    budget: 70,
+    interests: ['general', 'weapon', 'armor', 'tool'],
+    tier: 0
+  },
+  {
+    name: 'Local Crafter',
+    description: "a local artisan (smith, weaver, etc.) looking for tools or materials",
+    personalityTraits: ['practical', 'focused', 'frugal', 'knowledgeable (about crafts)'],
+    budget: 90,
+    interests: ['tool', 'misc', 'general'],
+    tier: 0
+  },
+  {
+    name: 'Errand Runner',
+    description: "a youngster sent on an errand, clutching a note",
+    personalityTraits: ['distracted', 'impatient', 'easily confused', 'frugal (with someone else\'s money)'],
+    budget: 50,
+    interests: ['general', 'potion', 'tool'],
+    tier: 0
+  },
+  {
+    name: 'Traveling Peddler',
+    description: "a dusty peddler looking to restock cheap wares",
+    personalityTraits: ['stingy', 'talkative', 'observant', 'always looking for a deal'],
+    budget: 60,
+    interests: ['general', 'tool', 'misc'],
+    tier: 0
+  },
+  {
+    name: 'Village Elder',
+    description: "an elderly villager leaning on a cane",
+    personalityTraits: ['patient', 'kind', 'forgetful', 'storyteller', 'frugal'],
+    budget: 40,
+    interests: ['potion', 'general', 'misc'],
+    tier: 0
+  },
+  {
+    name: 'Concerned Parent',
+    description: "a worried parent looking for something for their child",
+    personalityTraits: ['cautious', 'protective', 'frugal', 'anxious'],
+    budget: 80,
+    interests: ['shield', 'armor', 'misc'], // Light armor implied
+    tier: 0
+  },
+  // --- NEW TIER 1 ---
+   {
+    name: 'Eager Adventurer',
+    description: "bright-eyed and equipped for a journey",
+    personalityTraits: ['brave', 'optimistic', 'practical', 'sometimes reckless', 'resourceful'],
+    budget: 150,
+    interests: ['weapon', 'tool', 'potion', 'armor'],
+    tier: 1
+  },
+  {
+    name: 'Noble\'s Attendant',
+    description: "a servant in fine livery, looking slightly stressed",
+    personalityTraits: ['dutiful', 'discreet', 'slightly arrogant', 'budget-conscious (employer\'s money)'],
+    budget: 120,
+    interests: ['general', 'misc', 'potion'],
+    tier: 1
+  },
+  {
+    name: 'Hedge Wizard/Alchemist',
+    description: "smells faintly of sulfur, peering intently at ingredients",
+    personalityTraits: ['curious', 'focused', 'eccentric', 'knowledgeable (arcane)', 'sometimes distracted'],
+    budget: 200,
+    interests: ['potion', 'misc', 'tool'],
+    tier: 1
+  },
+  {
+    name: 'Guild Artisan',
+    description: "a skilled artisan looking for quality tools or components",
+    personalityTraits: ['detail-oriented', 'proud', 'knowledgeable (own craft)', 'fair', 'values quality'],
+    budget: 180,
+    interests: ['tool', 'misc', 'armor'], // Depending on craft
+    tier: 1
+  },
+  {
+    name: 'Retired Soldier',
+    description: "carries themselves with discipline, looking for reliable gear",
+    personalityTraits: ['practical', 'disciplined', 'nostalgic', 'fair', 'observant'],
+    budget: 140,
+    interests: ['weapon', 'armor', 'shield', 'tool'],
+    tier: 1
   }
 ];
 // NOTE: The 'personality' field is no longer used directly in Controls.jsx prompt,

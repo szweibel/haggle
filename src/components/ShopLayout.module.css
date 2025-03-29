@@ -1,0 +1,152 @@
+/* Resetting Layout CSS - Using Flexbox */
+:root {
+  --ui-padding: 10px;
+  --color-background: #2E2925;
+  --color-panel: #F5EEDC;
+  --color-panel-stroke: #4F463C;
+  --color-text: #2E2925;
+  --color-text-light: #6c757d;
+  --color-text-danger: #dc3545;
+  --color-text-gold: #E6A800;
+
+  /* Button Theme Colors (from gameState.js COLORS) */
+  --color-button: #795548;          
+  --color-button-text: #F5EEDC;      
+  --color-button-stroke: #4E342E;      
+  --color-button-hover: #5D4037;       
+}
+
+/* Main container - Flex column filling viewport */
+.shopLayout {
+  display: flex;
+  flex-direction: column;
+  height: 80vh;
+  flex: 1; /* ADDED - Ensure it grows in parent flex container */
+  background-color: var(--color-background);
+  padding: var(--ui-padding);
+  box-sizing: border-box;
+  gap: var(--ui-padding); 
+}
+
+/* Top Bar - Fixed height */
+.topBar {
+  display: grid; 
+  grid-template-columns: auto 1fr auto auto auto; 
+  gap: calc(var(--ui-padding) * 2.5); /* Increased gap */
+  padding: var(--ui-padding);
+  align-items: center; /* Vertically align items */
+  background-color: var(--color-panel);
+  border-radius: 8px;
+  border: 1px solid var(--color-panel-stroke);
+  color: var(--color-text);
+  flex-shrink: 0; /* Prevent top bar from shrinking */
+}
+
+.topBar span {
+  font-weight: bold;
+  white-space: nowrap;
+  font-size: 1.1em; /* Increased font size */
+}
+.topBar .loanInfo {}
+.topBar .loanInfoDanger { color: var(--color-text-danger); }
+.topBar .goldInfo { 
+  color: var(--color-text-gold); 
+  text-align: right; 
+  font-weight: 900; /* Make gold extra bold */
+}
+
+/* Phase Container - Flex column, grows to fill remaining space */
+.phaseContainer {
+  flex: 1; /* Grow to fill space left by topBar */
+  min-height: 0; /* Allow shrinking */
+  display: flex;
+  flex-direction: column; /* Stack top and bottom rows */
+  gap: var(--ui-padding);
+  overflow: hidden; 
+}
+
+/* --- Row Containers (Direct children of phaseContainer flexbox) --- */
+
+/* TOP Row - Grows, allows shrinking, contains flex content */
+.managementTop, 
+.settingUpTop, 
+.sellingTopRow { 
+  flex: 1; /* Grow to fill available space */
+  min-height: 0; /* Allow shrinking */
+  overflow: hidden; /* Hide overflow within this row */
+  display: flex; /* Use flex for internal layout */
+  gap: var(--ui-padding); 
+}
+
+/* BOTTOM Row - Flexible, contains flex content */
+.managementBottom, 
+.settingUpBottom, 
+.sellingBottomRow { 
+  flex: 1; /* Allow row to grow/shrink */
+  min-height: 0; /* Allow row to shrink */
+  display: flex; 
+  gap: var(--ui-padding);
+}
+
+
+/* --- Wrappers inside Rows --- */
+
+/* Wrappers for horizontal splits within rows */
+.managementBottomInventory,
+.settingUpBottomInventory,
+.sellingInventoryWrapper {
+  flex: 7; /* Grow - Takes 70% */
+  min-width: 0; /* Allow shrinking */
+  min-height: 0; /* Allow shrinking */
+  display: flex; 
+}
+
+.managementBottomControls,
+.settingUpBottomControls,
+.sellingControlsWrapper {
+  flex: 3; /* Grow - Takes 30% */
+  min-width: 0; /* Allow shrinking */
+  min-height: 0; /* Allow shrinking */
+  display: flex; 
+}
+
+/* Specific wrappers for selling top row */
+.sellingDialogueWrapper {
+  flex: 0.35; 
+  min-width: 0; 
+  min-height: 0; /* Allow shrinking */
+  display: flex; 
+}
+
+.sellingShelfWrapper {
+  flex: 0.65; 
+  min-width: 0; 
+  min-height: 0; /* Allow shrinking */
+  display: flex; 
+}
+
+/* General Panel Styling */
+.panel {
+  background-color: var(--color-panel);
+  border: 1px solid var(--color-panel-stroke);
+  border-radius: 8px;
+  padding: var(--ui-padding);
+  color: var(--color-text);
+  box-sizing: border-box;
+  display: flex; 
+  flex-direction: column; 
+  overflow: hidden; 
+  flex: 1; /* Panel grows to fill its wrapper */
+  min-height: 0; /* Allow panel to shrink */
+  min-width: 0; /* Allow panel to shrink */
+}
+
+.panelScrollable {
+  overflow-y: auto; 
+}
+
+/* Style for drop target highlight */
+.panelDroppableHighlight {
+  background-color: #d4c8a0; 
+  transition: background-color 0.2s ease-in-out;
+}

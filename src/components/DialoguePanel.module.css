@@ -1,0 +1,54 @@
+/* Inherits variables like --ui-padding, --color-text-gold, --color-text from ShopLayout.module.css or :root */
+
+.dialogueTitle {
+  margin-top: 0;
+  font-family: 'Cinzel Decorative', serif; /* Keep specific font */
+  color: var(--color-text-gold); /* Use CSS variable */
+  /* Add other title-specific styles if needed */
+}
+
+.messagesContainer {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--ui-padding) / 2); /* Use CSS variable */
+  /* Allow container to scroll if DialoguePanel itself has overflow: hidden */
+  overflow-y: auto; /* Let parent handle scroll for now */ /* UNCOMMENTED */
+  flex-grow: 1; /* Allow this container to take up space */
+}
+
+.message {
+  padding: calc(var(--ui-padding) / 2); /* Use CSS variable */
+  background-color: #EAE0C8; /* Specific message background */
+  color: var(--color-text); /* Use CSS variable */
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--ui-padding) / 2); /* Add gap between message text and spinner */
+}
+
+/* Add styles for the spinner container if needed */
+.spinnerContainer {
+  /* Styles for spinner alignment/spacing */
+}
+
+/* Custom Scrollbar Styles (WebKit) */
+.messagesContainer::-webkit-scrollbar {
+  width: 8px; /* Thinner scrollbar */
+}
+
+.messagesContainer::-webkit-scrollbar-track {
+  background: var(--color-background, #2E2925); /* Dark track, matches main background */
+  border-radius: 4px;
+  margin-block: 2px; /* Add slight margin */
+}
+
+.messagesContainer::-webkit-scrollbar-thumb {
+  background-color: var(--color-panel-stroke, #4F463C); /* Use a theme color */
+  border-radius: 4px;
+  border: 2px solid transparent; /* Creates padding around thumb */
+  background-clip: content-box;
+}
+
+.messagesContainer::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-text-gold, #E6A800); /* Highlight on hover */
+}

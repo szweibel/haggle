@@ -30,7 +30,13 @@ export default function ConsentModal({ onAccept }) {
           Welcome to Haggle! This game uses a large language model (LLM) AI to power the customer negotiations.
         </p>
         <p style={{ lineHeight: 1.6, margin: `${UI_PADDING}px 0` }}>
-          To enable this, the AI model needs to be downloaded and cached in your browser storage (this might take a few moments, depending on your connection). This download will only happen once.
+          Each customer has a unique personality and budget, driven by the AI. They'll react to your offers and dialogue based on their traits, making every negotiation different.
+        </p>
+        <p style={{ lineHeight: 1.6, margin: `${UI_PADDING}px 0` }}>
+          You've just bought this shop, taking on a 5000g debt. Each week (7 days), a 500g payment is due. Manage your stock and haggle wisely to succeed!
+        </p>
+        <p style={{ lineHeight: 1.6, margin: `${UI_PADDING}px 0` }}>
+          To enable the AI, the model needs to be downloaded and cached in your browser storage (this might take a few moments, depending on your connection). This download will only happen once.
         </p>
         <p style={{ lineHeight: 1.6, margin: `${UI_PADDING}px 0` }}>
           Click "Accept" to download the model and start playing.

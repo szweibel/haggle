@@ -8,30 +8,31 @@ export default function Layout({ children }) {
   const { state } = useGameState(); // Get game state for webllmStatus
 
   return (
+    // Simplify outer container - rely on block layout and margin: auto for centering
     <div style={{
-      position: 'relative', // Needed for overlay positioning
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'flex-start',
-      minHeight: '100vh',
+      position: 'relative', 
+      minHeight: '100vh', // Ensure it covers viewport height
       width: '100%',
-      padding: '2rem',
+      padding: '2rem', // Keep padding for spacing
       boxSizing: 'border-box'
     }}>
       <AnimatedBackground />
+      {/* Main content container - Let height be determined by content */ }
       <div style={{
-        width: '95%',
-        maxWidth: '1400px',
-        height: '85vh',
+        width: '95%', 
+        maxWidth: '1400px', 
+        /* height: 'calc(100vh - 4rem)', // REMOVED explicit height */
+        aspectRatio: '16 / 9',
         backgroundColor: COLORS.background,
         borderRadius: '12px',
         boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        margin: '0 auto',
-        position: 'relative' // Needed for overlay positioning
+        /* overflow: 'hidden', /* REMOVE overflow for debugging */
+        display: 'flex', /* Keep as flex container */
+        flexDirection: 'column', /* Keep column direction */
+        margin: '0 auto', /* Keep horizontal centering */
+        position: 'relative' 
       }}>
+        {/* Children (ShopLayout) will now determine height */ }
         {children}
 
         {/* Loading Overlay - Show only if not initialized */}

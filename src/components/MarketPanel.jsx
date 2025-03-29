@@ -1,5 +1,8 @@
 import { useGameState } from '../contexts/GameStateContext';
-import { COLORS, UI_PADDING, WHOLESALE_ITEMS, ITEM_TIERS } from '../gameState'; // Import ITEM_TIERS
+// Removed COLORS, UI_PADDING import
+import { WHOLESALE_ITEMS, ITEM_TIERS } from '../gameState'; // Import ITEM_TIERS
+// Removed import of ShopLayout styles
+import styles from './MarketPanel.module.css'; // Import component-specific styles
 
 function MarketItem({ item }) {
   const { state, dispatch } = useGameState();
@@ -9,33 +12,21 @@ function MarketItem({ item }) {
     dispatch({ type: 'BUY_ITEM', payload: item });
   };
 
+  // Combine button classes based on affordability
+  const buttonClassName = `
+    ${styles.buyButton} 
+    ${!canAfford ? styles.buyButtonDisabled : ''}
+  `;
+
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: UI_PADDING / 2,
-      marginBottom: UI_PADDING / 2,
-      backgroundColor: '#EAE0C8', // Slightly darker parchment
-      color: COLORS.text,
-      borderRadius: 4,
-      border: `1px solid ${COLORS.panelStroke}`
-    }}>
+    // Apply market item style
+    <div className={styles.marketItem}>
       <span>{item.name} ({item.wholesalePrice}g)</span>
+      {/* Apply combined button class name, remove inline styles */}
       <button 
         onClick={handleBuy}
         disabled={!canAfford}
-        style={{
-          padding: `${UI_PADDING / 4}px ${UI_PADDING / 2}px`, // Smaller button padding
-          fontSize: '0.9em',
-          backgroundColor: canAfford ? COLORS.button : COLORS.textLight,
-          color: COLORS.panel,
-          border: `1px solid ${canAfford ? COLORS.buttonStroke : COLORS.textLight}`,
-          borderRadius: 4,
-          cursor: canAfford ? 'pointer' : 'not-allowed',
-          opacity: canAfford ? 1 : 0.6,
-          fontWeight: 700
-        }}
+        className={buttonClassName.trim()}
       >
         Buy
       </button>
@@ -50,7 +41,8 @@ const TIER_THRESHOLDS = {
   'Rare': 25
 };
 
-export default function MarketPanel() {
+// Accept className as a prop
+export default function MarketPanel({ className }) {
   const { state } = useGameState(); // Get game state for reputation
 
   // Filter items based on player reputation
@@ -59,29 +51,23 @@ export default function MarketPanel() {
     return state.reputation >= requiredRep;
   });
 
+  // Combine passed className, add scrollable class
+  const combinedClassName = `${className || ''} ${styles.panelScrollable}`;
+
   return (
-    <div style={{
-      flex: 0.65, // Match Shelf flex value
-      backgroundColor: COLORS.panel,
-      borderRadius: 8,
-      border: `1px solid ${COLORS.panelStroke}`,
-      padding: UI_PADDING,
-      color: COLORS.text,
-      overflowY: 'auto', // Add scroll if list is long
-      maxHeight: '100%' // Ensure it fits within layout
-    }}>
-      <h3 style={{ 
-        marginTop: 0, 
-        fontFamily: "'Cinzel Decorative', serif", 
-        color: COLORS.textGold
-      }}>Wholesale Market (Rep: {state.reputation})</h3> {/* Optionally display rep */}
-      <div>
+    // Apply combined className from props
+    <div className={combinedClassName} style={{ maxHeight: '100%' /* Keep maxHeight for now */ }}>
+      {/* Apply title style */}
+      <h3 className={styles.marketTitle}>Wholesale Market (Rep: {state.reputation})</h3> {/* Optionally display rep */}
+      {/* Apply items container style */}
+      <div className={styles.itemsContainer}>
         {availableItems.length > 0 ? (
           availableItems.map((item) => (
             <MarketItem key={item.id} item={item} />
           ))
         ) : (
-          <p style={{ color: COLORS.textLight, fontStyle: 'italic' }}>No items available at your current reputation level.</p>
+          // Apply no items text style
+          <p className={styles.noItemsText}>No items available at your current reputation level.</p>
         )}
       </div>
     </div>

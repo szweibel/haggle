@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { useGameState } from '../contexts/GameStateContext';
-import { COLORS, UI_PADDING } from '../gameState';
+// Removed COLORS, UI_PADDING import
 import { useWebLLMContext } from '../contexts/WebLLMContext';
 import Spinner from './Spinner';
+import styles from './DialoguePanel.module.css'; // Import the new CSS module
 
-export default function DialoguePanel() {
+// Accept className as a prop
+export default function DialoguePanel({ className }) {
   const { state } = useGameState();
   const { loading } = useWebLLMContext();
   const messagesEndRef = useRef(null);
@@ -14,38 +16,22 @@ export default function DialoguePanel() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [state.dialogue]);
 
+  // Combine passed className with any internal classes if needed later
+  const combinedClassName = `${className || ''}`; 
+
   return (
-    <div style={{
-      flex: 0.35,
-      backgroundColor: COLORS.panel,
-      borderRadius: 8,
-      border: `1px solid ${COLORS.panelStroke}`,
-      padding: UI_PADDING,
-      overflowY: 'auto',
-      maxHeight: '100%',
-      color: COLORS.text
-    }}>
-      <h3 style={{ 
-        marginTop: 0, 
-        fontFamily: "'Cinzel Decorative', serif",
-        color: COLORS.textGold
-      }}>Dialogue</h3>
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: UI_PADDING/2
-      }}>
+    // Apply the combined className from props
+    <div className={combinedClassName} style={{ /* Keep only non-conflicting styles if any */ }}>
+      {/* Apply title style */}
+      <h3 className={styles.dialogueTitle}>Dialogue</h3>
+      {/* Apply messages container style */}
+      <div className={styles.messagesContainer}>
         {state.dialogue.map((message, index) => (
-          <div key={index} style={{
-            padding: UI_PADDING/2,
-            backgroundColor: '#EAE0C8',
-            color: COLORS.text,
-            borderRadius: 4,
-            display: 'flex',
-            alignItems: 'center'
-          }}>
+          // Apply message style
+          <div key={index} className={styles.message}>
             {message}
-            {loading && index === state.dialogue.length - 1 && <Spinner />}
+            {/* Apply spinner container style if needed */}
+            {loading && index === state.dialogue.length - 1 && <span className={styles.spinnerContainer}><Spinner /></span>}
           </div>
         ))}
         <div ref={messagesEndRef} />

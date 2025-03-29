@@ -1,0 +1,64 @@
+/* Inherits variables like --ui-padding, --color-text-light, --color-panel-stroke, --color-button, --color-button-text, --color-button-stroke from ShopLayout.module.css or :root */
+
+.controlsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-padding);
+  /* Allow container to grow if needed */
+  flex-grow: 1; 
+}
+
+.moodText {
+  text-align: center;
+  font-style: italic;
+  color: var(--color-text-light);
+}
+
+.negotiationInputs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-padding);
+}
+
+.inputField {
+  padding: var(--ui-padding);
+  border-radius: 4px;
+  border: 1px solid var(--color-panel-stroke); /* Use panel stroke */
+  background-color: var(--color-panel); /* Use panel background */
+  color: var(--color-text); /* Use standard text color */
+  font-family: inherit; /* Ensure it uses the game's font */
+  font-size: 1em;
+}
+
+.buttonRow {
+  display: flex;
+  gap: var(--ui-padding);
+}
+
+.button {
+  padding: var(--ui-padding);
+  background-color: var(--color-button); /* Use theme variable */
+  color: var(--color-button-text); /* Use theme variable */
+  border: 1px solid var(--color-button-stroke); /* Use theme variable */
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 700;
+  transition: opacity 0.2s, background-color 0.2s; /* Add transitions */
+  flex: 1; /* Make buttons in rows share space by default */
+}
+
+.button:hover:not([disabled]) { /* Add hover effect for non-disabled buttons */
+  background-color: var(--color-button-hover); /* Use theme variable */
+}
+
+.buttonDisabled {
+  cursor: not-allowed;
+  opacity: 0.6; /* Slightly less transparent */
+  background-color: var(--color-button-stroke); /* Use a darker color */
+  border-color: var(--color-button-stroke);
+  color: var(--color-panel); /* Use panel background color for better contrast */
+}
+
+.fullWidthButton {
+  width: 100%;
+}

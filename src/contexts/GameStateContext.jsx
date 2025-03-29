@@ -84,6 +84,16 @@ function gameReducer(state, action) {
 
       // Use the inventory item instance to ensure we have the correct reference
       const inventoryItem = state.inventory[itemIndex];
+
+      // --- Add shelf capacity check ---
+      if (state.displayedItems.length >= state.shopShelves) {
+        console.log("Reducer: Shelf is full, move rejected.");
+        // Optionally add dialogue feedback here if desired
+        // return { ...state, dialogue: [...state.dialogue, "Shelf is full!"] };
+        return state; // Return current state without changes
+      }
+      // --- End shelf capacity check ---
+
       const newInventory = [...state.inventory];
       newInventory.splice(itemIndex, 1);
       const newDisplayedItems = [...state.displayedItems, inventoryItem];

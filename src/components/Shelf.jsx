@@ -1,8 +1,11 @@
 import { useGameState } from '../contexts/GameStateContext';
 import { useDrop } from 'react-dnd';
-import { COLORS, UI_PADDING } from '../gameState';
+// Removed COLORS, UI_PADDING import
+import shopLayoutStyles from './ShopLayout.module.css'; // Import shared layout styles for highlight
+import styles from './Shelf.module.css'; // Import component-specific styles
 
-export default function Shelf() {
+// Accept className as a prop
+export default function Shelf({ className }) {
   const { state, dispatch } = useGameState();
 
   const [{ isOver }, drop] = useDrop(() => ({
@@ -43,34 +46,22 @@ export default function Shelf() {
     })
   }));
 
+  // Combine passed className with highlight class if isOver
+  const combinedClassName = `
+    ${className || ''} 
+    ${isOver ? shopLayoutStyles.panelDroppableHighlight : ''}
+  `;
+
   return (
-    <div ref={drop} style={{
-      flex: 0.65,
-      backgroundColor: COLORS.panel,
-      borderRadius: 8,
-      border: `1px solid ${COLORS.panelStroke}`,
-      padding: UI_PADDING,
-      backgroundColor: isOver ? COLORS.dropHighlight : COLORS.panel,
-      color: COLORS.text // Set default text color for the panel
-    }}>
-      <h3 style={{ 
-        marginTop: 0, 
-        fontFamily: "'Cinzel Decorative', serif", // Match global heading font
-        color: COLORS.textGold // Match global heading color
-      }}>Shelf ({state.displayedItems.length}/{state.shopShelves})</h3>
-      <div style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: UI_PADDING
-      }}>
+    // Apply combined class from props + highlight
+    <div ref={drop} className={combinedClassName.trim()} style={{ height: '100%' /* Keep height for now */ }}>
+      {/* Apply title style */}
+      <h3 className={styles.shelfTitle}>Shelf ({state.displayedItems.length}/{state.shopShelves})</h3>
+      {/* Apply items container style */}
+      <div className={styles.itemsContainer}>
         {state.displayedItems.map((item, index) => (
-          <div key={index} style={{
-            padding: UI_PADDING / 2, // Smaller padding for items
-            backgroundColor: '#EAE0C8', // Slightly darker parchment for items
-            color: COLORS.text, // Ensure text is readable
-            borderRadius: 4,
-            border: `1px solid ${COLORS.panelStroke}` // Add subtle border to items
-          }}>
+          // Apply shelf item style
+          <div key={index} className={styles.shelfItem}>
             {item.name} {/* TODO: Add item price? */}
           </div>
         ))}

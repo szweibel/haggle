@@ -1,6 +1,8 @@
 import { useDrag } from 'react-dnd';
 import { useGameState } from '../contexts/GameStateContext';
-import { COLORS, UI_PADDING } from '../gameState';
+// Removed COLORS, UI_PADDING import
+// Removed import of ShopLayout styles
+import styles from './Inventory.module.css'; // Import component-specific styles
 import { memo } from 'react';
 
 const InventoryItem = memo(function InventoryItem({ item }) {
@@ -22,41 +24,35 @@ const InventoryItem = memo(function InventoryItem({ item }) {
     })
   }));
 
+  // Combine base item class with dragging class if needed
+  const itemClassName = `
+    ${styles.inventoryItem} 
+    ${isDragging ? styles.inventoryItemDragging : ''}
+  `;
+
   return (
-    <div ref={drag} style={{
-      padding: UI_PADDING / 2,
-      marginBottom: UI_PADDING/2,
-      backgroundColor: '#EAE0C8',
-      color: COLORS.text,
-      borderRadius: 4,
-      cursor: 'grab',
-      opacity: isDragging ? 0.5 : 1,
-      border: `1px solid ${COLORS.panelStroke}`
-    }}>
+    // Apply combined class name, remove inline styles
+    <div ref={drag} className={itemClassName.trim()}>
       {item.name}
     </div>
   );
 });
 
-export default function Inventory() {
+// Accept className as a prop
+export default function Inventory({ className }) {
   const { state } = useGameState();
   console.log('Current inventory count (Inventory component):', state.inventory.length);
 
+  // Combine passed className
+  const combinedClassName = `${className || ''}`;
+
   return (
-    <div style={{
-      flex: 0.65,
-      backgroundColor: COLORS.panel,
-      borderRadius: 8,
-      border: `1px solid ${COLORS.panelStroke}`,
-      padding: UI_PADDING,
-      color: COLORS.text
-    }}>
-      <h3 style={{ 
-        marginTop: 0, 
-        fontFamily: "'Cinzel Decorative', serif",
-        color: COLORS.textGold
-      }}>Inventory ({state.inventory.length})</h3>
-      <div>
+    // Apply combined className from props
+    <div className={combinedClassName} style={{ /* Keep only non-conflicting styles if any */ }}>
+      {/* Apply title style */}
+      <h3 className={styles.inventoryTitle}>Inventory ({state.inventory.length})</h3>
+      {/* Apply items container style */}
+      <div className={styles.itemsContainer}>
         {/* Use stable instanceId as key */}
         {state.inventory.map((item) => (
           <InventoryItem key={item.instanceId} item={item} />
