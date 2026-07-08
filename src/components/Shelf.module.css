@@ -1,31 +1,110 @@
-/* Inherits variables like --ui-padding, --color-text-gold, --color-text, --color-panel-stroke from ShopLayout.module.css or :root */
-
 .shelfTitle {
-  margin-top: 0;
-  font-family: 'Cinzel Decorative', serif; /* Keep specific font */
-  color: var(--color-text-gold); /* Use CSS variable */
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.hint {
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--color-text-light);
 }
 
 .itemsContainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.5rem;
+  overflow-y: auto;
+  min-height: 0;
+  align-content: flex-start;
+  flex: 1;
+}
+
+.shelfItem,
+.emptySlot {
+  min-height: 108px;
+  border-radius: 10px;
+  box-sizing: border-box;
   display: flex;
-  flex-wrap: wrap; /* Allow items to wrap into multiple rows */
-  gap: var(--ui-padding); /* Use CSS variable for spacing */
-  align-content: flex-start; /* Stack rows from the top */
-  flex-grow: 1; /* Allow container to take available space */
-  /* Removed overflow-y: auto; scrolling handled by parent panel */
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.4rem;
+  position: relative;
 }
 
 .shelfItem {
-  width: 80px; /* Fixed width for slot */
-  height: 100px; /* Fixed height for slot */
-  background-color: #D0C6AE; /* Slightly darker background for slot */
-  color: var(--color-text); /* Use CSS variable */
-  border-radius: 4px;
-  border: 1px solid var(--color-panel-stroke); /* Use CSS variable */
-  display: flex; /* Use flexbox for centering */
-  align-items: center; /* Center text vertically */
-  justify-content: center; /* Center text horizontally */
-  text-align: center; /* Ensure text wraps centrally if needed */
-  padding: calc(var(--ui-padding) / 4); /* Smaller padding inside slot */
-  box-sizing: border-box; /* Include padding/border in size */
+  background: #fffdf5;
+  border: 1px solid var(--color-panel-stroke);
+  text-align: center;
+}
+
+.shelfItemActive {
+  border: 2px solid var(--color-gold);
+  box-shadow: 0 0 10px rgba(230, 168, 0, 0.4);
+}
+
+.shelfItemDragging { opacity: 0.4; }
+
+.emptySlot {
+  border: 2px dashed rgba(79, 70, 60, 0.35);
+  color: rgba(79, 70, 60, 0.5);
+  font-size: 0.7rem;
+  font-style: italic;
+}
+
+.itemEmoji { font-size: 1.6rem; }
+
+.itemName {
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.priceRow {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.priceInput {
+  width: 54px;
+  padding: 0.15rem 0.3rem;
+  border: 1px solid var(--color-panel-stroke);
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  text-align: right;
+  background: #fff;
+  color: var(--color-text);
+}
+
+.priceUnit { font-size: 0.75rem; color: var(--color-text-light); }
+
+.priceTag {
+  font-size: 0.85rem;
+  font-weight: 900;
+  color: #9a7000;
+}
+
+.returnButton {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: transparent;
+  border: 1px solid var(--color-panel-stroke);
+  color: var(--color-text-light);
+  border-radius: 5px;
+  font-size: 0.7rem;
+  padding: 0.05rem 0.35rem;
+  line-height: 1.3;
+}
+
+.returnButton:hover { background: rgba(0, 0, 0, 0.06); }
+
+.dropHighlight {
+  outline: 2px dashed var(--color-gold);
+  outline-offset: -4px;
 }

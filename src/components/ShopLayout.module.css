@@ -1,131 +1,103 @@
-/* Resetting Layout CSS - Using Flexbox */
-:root {
-  --ui-padding: 10px;
-  --color-background: #2E2925;
-  --color-panel: #F5EEDC;
-  --color-panel-stroke: #4F463C;
-  --color-text: #2E2925;
-  --color-text-light: #6c757d;
-  --color-text-danger: #dc3545;
-  --color-text-gold: #E6A800;
-
-  /* Button Theme Colors (from gameState.js COLORS) */
-  --color-button: #795548;          
-  --color-button-text: #F5EEDC;      
-  --color-button-stroke: #4E342E;      
-  --color-button-hover: #5D4037;       
-}
-
-/* Main container - Flex column filling viewport */
 .shopLayout {
   display: flex;
   flex-direction: column;
-  height: 80vh;
-  flex: 1; /* ADDED - Ensure it grows in parent flex container */
-  background-color: var(--color-background);
+  flex: 1;
+  min-height: 0;
   padding: var(--ui-padding);
   box-sizing: border-box;
-  gap: var(--ui-padding); 
+  gap: var(--ui-padding);
 }
 
-/* Top Bar - Fixed height */
+/* ---- Top bar ---- */
+
 .topBar {
-  display: grid; 
-  grid-template-columns: auto 1fr auto auto auto; 
-  gap: calc(var(--ui-padding) * 2.5); /* Increased gap */
-  padding: var(--ui-padding);
-  align-items: center; /* Vertically align items */
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0.85rem;
   background-color: var(--color-panel);
   border-radius: 8px;
   border: 1px solid var(--color-panel-stroke);
   color: var(--color-text);
-  flex-shrink: 0; /* Prevent top bar from shrinking */
+  flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .topBar span {
-  font-weight: bold;
+  font-weight: 700;
   white-space: nowrap;
-  font-size: 1.1em; /* Increased font size */
-}
-.topBar .loanInfo {}
-.topBar .loanInfoDanger { color: var(--color-text-danger); }
-.topBar .goldInfo { 
-  color: var(--color-text-gold); 
-  text-align: right; 
-  font-weight: 900; /* Make gold extra bold */
+  font-size: 0.95rem;
 }
 
-/* Phase Container - Flex column, grows to fill remaining space */
-.phaseContainer {
-  flex: 1; /* Grow to fill space left by topBar */
-  min-height: 0; /* Allow shrinking */
+.spacer { flex: 1; }
+
+.phaseLabel {
+  font-weight: 400;
+  color: var(--color-text-light);
+  font-size: 0.85rem;
+  margin-left: 0.35rem;
+}
+
+.customersInfo { color: var(--color-text-light); font-weight: 400 !important; font-size: 0.85rem !important; }
+
+.repTitle {
+  font-weight: 400;
+  color: var(--color-text-light);
+  font-size: 0.8rem;
+}
+
+.loanInfo { color: var(--color-text-light); }
+.loanInfoDanger { color: var(--color-danger); }
+
+.goldInfo {
+  color: #9a7000;
+  font-weight: 900 !important;
+  font-size: 1.05rem !important;
+}
+
+.newGameButton {
+  background: transparent;
+  border: 1px solid var(--color-panel-stroke);
+  color: var(--color-text-light);
+  border-radius: 6px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.newGameButton:hover { background: rgba(0, 0, 0, 0.06); }
+
+/* ---- Main area: two columns ---- */
+
+.mainArea {
+  flex: 1;
+  min-height: 0;
   display: flex;
-  flex-direction: column; /* Stack top and bottom rows */
-  gap: var(--ui-padding);
-  overflow: hidden; 
-}
-
-/* --- Row Containers (Direct children of phaseContainer flexbox) --- */
-
-/* TOP Row - Grows, allows shrinking, contains flex content */
-.managementTop, 
-.settingUpTop, 
-.sellingTopRow { 
-  flex: 1; /* Grow to fill available space */
-  min-height: 0; /* Allow shrinking */
-  overflow: hidden; /* Hide overflow within this row */
-  display: flex; /* Use flex for internal layout */
-  gap: var(--ui-padding); 
-}
-
-/* BOTTOM Row - Flexible, contains flex content */
-.managementBottom, 
-.settingUpBottom, 
-.sellingBottomRow { 
-  flex: 1; /* Allow row to grow/shrink */
-  min-height: 0; /* Allow row to shrink */
-  display: flex; 
   gap: var(--ui-padding);
 }
 
-
-/* --- Wrappers inside Rows --- */
-
-/* Wrappers for horizontal splits within rows */
-.managementBottomInventory,
-.settingUpBottomInventory,
-.sellingInventoryWrapper {
-  flex: 7; /* Grow - Takes 70% */
-  min-width: 0; /* Allow shrinking */
-  min-height: 0; /* Allow shrinking */
-  display: flex; 
+.leftColumn {
+  flex: 6;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-padding);
 }
 
-.managementBottomControls,
-.settingUpBottomControls,
-.sellingControlsWrapper {
-  flex: 3; /* Grow - Takes 30% */
-  min-width: 0; /* Allow shrinking */
-  min-height: 0; /* Allow shrinking */
-  display: flex; 
+.rightColumn {
+  flex: 4;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-padding);
 }
 
-/* Specific wrappers for selling top row */
-.sellingDialogueWrapper {
-  flex: 0.35; 
-  min-width: 0; 
-  min-height: 0; /* Allow shrinking */
-  display: flex; 
-}
+.leftTop { flex: 6; min-height: 0; display: flex; }
+.leftBottom { flex: 4; min-height: 0; display: flex; }
+.rightTop { flex: 5; min-height: 0; display: flex; }
+.rightBottom { flex: 5; min-height: 0; display: flex; overflow-y: auto; }
 
-.sellingShelfWrapper {
-  flex: 0.65; 
-  min-width: 0; 
-  min-height: 0; /* Allow shrinking */
-  display: flex; 
-}
+/* ---- Shared panel chrome ---- */
 
-/* General Panel Styling */
 .panel {
   background-color: var(--color-panel);
   border: 1px solid var(--color-panel-stroke);
@@ -133,20 +105,10 @@
   padding: var(--ui-padding);
   color: var(--color-text);
   box-sizing: border-box;
-  display: flex; 
-  flex-direction: column; 
-  overflow: hidden; 
-  flex: 1; /* Panel grows to fill its wrapper */
-  min-height: 0; /* Allow panel to shrink */
-  min-width: 0; /* Allow panel to shrink */
-}
-
-.panelScrollable {
-  overflow-y: auto; 
-}
-
-/* Style for drop target highlight */
-.panelDroppableHighlight {
-  background-color: #d4c8a0; 
-  transition: background-color 0.2s ease-in-out;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
 }

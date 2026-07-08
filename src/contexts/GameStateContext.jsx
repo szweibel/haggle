@@ -1,307 +1,344 @@
-import { createContext, useContext, useReducer } from 'react';
-import { initialState } from '../gameState';
+import { createContext, useContext, useEffect, useReducer } from 'react';
+import {
+  createInitialState,
+  defaultAskingPrice,
+  shelfUpgradeCost,
+  GAME_CONFIG,
+} from '../gameState';
+import { startingPatience, saleReputation } from '../game/negotiation';
 
 const GameStateContext = createContext();
 
-// Helper to determine starting patience based on traits
-function calculateStartingPatience(traits = []) {
-  if (traits.includes('impatient')) return 3;
-  if (traits.includes('patient')) return 7;
-  return 5; // Default patience
+const SAVE_KEY = 'haggle_save_v2';
+
+function loadSavedState() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw);
+    if (saved?.version !== 2) return null;
+    // Merge over a fresh state so newly added fields get defaults, and drop
+    // transient mid-negotiation state.
+    return {
+      ...createInitialState(),
+      ...saved,
+      currentCustomer: null,
+      currentNegotiation: null,
+    };
+  } catch (e) {
+    console.warn('Could not load save:', e);
+    return null;
+  }
+}
+
+function initState() {
+  return loadSavedState() ?? createInitialState();
+}
+
+function sysMsg(text) {
+  return { speaker: 'system', text };
 }
 
 function gameReducer(state, action) {
-  const now = Date.now();
   switch (action.type) {
-    case 'SET_GOLD':
-      return { ...state, gold: action.payload, lastUpdated: now };
-    case 'ADD_ITEM':
-      return { 
-        ...state, 
-        inventory: [...state.inventory, action.payload],
-        lastUpdated: now 
-      };
-    case 'SET_PHASE':
-      return { ...state, phase: action.payload };
+    case 'NEW_GAME':
+      return createInitialState();
+
     case 'ADD_DIALOGUE':
       return { ...state, dialogue: [...state.dialogue, action.payload] };
-    
-    case 'SET_DAY':
-      return { ...state, day: action.payload };
-    
-    case 'SET_LOAN_DUE_DATE': // Action to update due date after payment
-      return { ...state, loanDueDate: action.payload };
-
-    case 'SET_GAME_OVER': // Action to set game over state
-      return { ...state, gameOver: true, phase: 'game over' }; // Also set phase
-
-    case 'DECREASE_TOTAL_LOAN': // Action to reduce total loan owed
-      return { ...state, totalLoanOwed: Math.max(0, state.totalLoanOwed - action.payload) };
-
-    case 'SET_WEBLLM_STATUS': // Action to update loading status text
-      return { ...state, webllmStatus: action.payload };
 
     case 'BUY_ITEM': {
-      const itemToBuy = action.payload;
-      if (state.gold >= itemToBuy.wholesalePrice) {
-        // Create a unique instance for the inventory
-        const newItemInstance = { 
-          ...itemToBuy, 
-          instanceId: `${itemToBuy.id}-${Date.now()}` // Simple unique ID
-        };
+      const item = action.payload;
+      if (state.gold < item.wholesalePrice) {
         return {
           ...state,
-          gold: state.gold - itemToBuy.wholesalePrice,
-          inventory: [...state.inventory, newItemInstance],
-          dialogue: [...state.dialogue, `Bought ${itemToBuy.name} for ${itemToBuy.wholesalePrice}g.`]
-        };
-      } else {
-        return {
-          ...state,
-          dialogue: [...state.dialogue, `Not enough gold to buy ${itemToBuy.name} (${itemToBuy.wholesalePrice}g).`]
+          dialogue: [...state.dialogue, sysMsg(`Not enough gold for ${item.name} (${item.wholesalePrice}g).`)],
         };
       }
-    }
-
-    case 'MOVE_ITEM_TO_SHELF': {
-      const itemToMove = action.payload;
-      console.log('Attempting to move item to shelf:', itemToMove);
-      console.log('Current inventory:', state.inventory);
-      
-      // Find the exact item instance in inventory
-      console.log('Full inventory contents:', state.inventory);
-      const itemIndex = state.inventory.findIndex(item => {
-        const match = item.instanceId === itemToMove.instanceId;
-        console.log(`Checking item ${item.instanceId} (${item.name}) vs ${itemToMove.instanceId} (${itemToMove.name}) - match: ${match}`);
-        return match;
-      });
-      
-      if (itemIndex === -1) {
-        console.warn("Attempted to move item to shelf that wasn't in inventory:", itemToMove);
-        console.warn("Current inventory contents:", state.inventory);
-        return state;
-      }
-
-      // Use the inventory item instance to ensure we have the correct reference
-      const inventoryItem = state.inventory[itemIndex];
-
-      // --- Add shelf capacity check ---
-      if (state.displayedItems.length >= state.shopShelves) {
-        console.log("Reducer: Shelf is full, move rejected.");
-        // Optionally add dialogue feedback here if desired
-        // return { ...state, dialogue: [...state.dialogue, "Shelf is full!"] };
-        return state; // Return current state without changes
-      }
-      // --- End shelf capacity check ---
-
-      const newInventory = [...state.inventory];
-      newInventory.splice(itemIndex, 1);
-      const newDisplayedItems = [...state.displayedItems, inventoryItem];
-      
-      console.log('Post-move inventory count:', newInventory.length);
-      console.log('Post-move displayed items count:', newDisplayedItems.length);
-      
+      const instance = { ...item, instanceId: `${item.id}-${Date.now()}-${Math.floor(Math.random() * 1e6)}` };
       return {
         ...state,
-        inventory: newInventory,
-        displayedItems: newDisplayedItems,
-        lastUpdated: Date.now()
+        gold: state.gold - item.wholesalePrice,
+        inventory: [...state.inventory, instance],
+        stats: { ...state.stats, totalSpent: state.stats.totalSpent + item.wholesalePrice },
+        dialogue: [...state.dialogue, sysMsg(`Bought ${item.name} for ${item.wholesalePrice}g.`)],
       };
     }
 
-    case 'START_NEGOTIATION': {
-      const { item, customer, customerOffer, spokenResponse } = action.payload;
-      // Ensure we don't start if already negotiating
-      if (state.currentNegotiation) return state; 
+    case 'MOVE_TO_SHELF': {
+      const idx = state.inventory.findIndex((i) => i.instanceId === action.payload);
+      if (idx === -1) return state;
+      if (state.displayedItems.length >= state.shopShelves) {
+        return { ...state, dialogue: [...state.dialogue, sysMsg('The shelf is full!')] };
+      }
+      const item = state.inventory[idx];
+      const shelved = { ...item, askingPrice: item.askingPrice ?? defaultAskingPrice(item) };
+      const inventory = [...state.inventory];
+      inventory.splice(idx, 1);
+      return { ...state, inventory, displayedItems: [...state.displayedItems, shelved] };
+    }
 
+    case 'RETURN_TO_INVENTORY': {
+      const idx = state.displayedItems.findIndex((i) => i.instanceId === action.payload);
+      if (idx === -1) return state;
+      // Can't pull the item someone is haggling over.
+      if (state.currentNegotiation?.item.instanceId === action.payload) return state;
+      const item = state.displayedItems[idx];
+      const displayedItems = [...state.displayedItems];
+      displayedItems.splice(idx, 1);
+      return { ...state, displayedItems, inventory: [...state.inventory, item] };
+    }
+
+    case 'SET_ASKING_PRICE': {
+      const { instanceId, price } = action.payload;
+      if (!Number.isFinite(price) || price < 1) return state;
+      return {
+        ...state,
+        displayedItems: state.displayedItems.map((i) =>
+          i.instanceId === instanceId ? { ...i, askingPrice: Math.round(price) } : i
+        ),
+      };
+    }
+
+    case 'UPGRADE_SHELF': {
+      const cost = shelfUpgradeCost(state.shopShelves);
+      if (state.gold < cost || state.shopShelves >= GAME_CONFIG.maxShelves) return state;
+      return {
+        ...state,
+        gold: state.gold - cost,
+        shopShelves: state.shopShelves + 1,
+        dialogue: [...state.dialogue, sysMsg(`Shelf expanded to ${state.shopShelves + 1} slots. (-${cost}g)`)],
+      };
+    }
+
+    case 'PAY_DEBT': {
+      const amount = Math.min(action.payload, state.gold, state.totalLoanOwed);
+      if (amount <= 0) return state;
+      const owed = state.totalLoanOwed - amount;
+      return {
+        ...state,
+        gold: state.gold - amount,
+        totalLoanOwed: owed,
+        victory: owed <= 0,
+        dialogue: [
+          ...state.dialogue,
+          sysMsg(owed <= 0
+            ? `You hand over the final ${amount}g. The deed to the shop is yours!`
+            : `Paid ${amount}g toward the debt. ${owed}g to go.`),
+        ],
+      };
+    }
+
+    case 'START_DAY':
+      return {
+        ...state,
+        phase: 'setting up',
+        dialogue: [...state.dialogue, sysMsg(`Day ${state.day}: arrange your shelf and set your prices.`)],
+      };
+
+    case 'OPEN_SHOP':
+      return {
+        ...state,
+        phase: 'selling',
+        customersServedToday: 0,
+        dayStats: { revenue: 0, itemsSold: 0, customersServed: 0, failed: 0 },
+        dialogue: [...state.dialogue, sysMsg('The shop is open for business!')],
+      };
+
+    case 'CLOSE_SHOP': {
+      let gold = state.gold;
+      let totalLoanOwed = state.totalLoanOwed;
+      let loanDueDay = state.loanDueDay;
+      let gameOver = state.gameOver;
+      let loanPaid = 0;
+      let loanFailed = false;
+
+      if (state.day >= state.loanDueDay && totalLoanOwed > 0) {
+        const due = Math.min(state.loanPayment, totalLoanOwed);
+        if (gold >= due) {
+          gold -= due;
+          totalLoanOwed -= due;
+          loanDueDay = state.loanDueDay + GAME_CONFIG.loanIntervalDays;
+          loanPaid = due;
+        } else {
+          loanFailed = true;
+          gameOver = true;
+        }
+      }
+
+      const victory = state.victory || totalLoanOwed <= 0;
+      return {
+        ...state,
+        gold,
+        totalLoanOwed,
+        loanDueDay,
+        gameOver,
+        victory,
+        phase: 'management',
+        day: state.day + 1,
+        currentCustomer: null,
+        currentNegotiation: null,
+        daySummary: {
+          day: state.day,
+          ...state.dayStats,
+          loanPaid,
+          loanFailed,
+          loanShortfall: loanFailed ? Math.min(state.loanPayment, totalLoanOwed) - gold : 0,
+          debtRemaining: totalLoanOwed,
+        },
+        dialogue: [
+          ...state.dialogue,
+          sysMsg(`You lock up after day ${state.day}.`),
+          ...(loanPaid ? [sysMsg(`Weekly loan payment made: ${loanPaid}g.`)] : []),
+          ...(loanFailed ? [sysMsg('You cannot make the loan payment. The creditors arrive at dawn...')] : []),
+        ],
+      };
+    }
+
+    case 'DISMISS_SUMMARY':
+      return { ...state, daySummary: null };
+
+    case 'CUSTOMER_ENTERS': {
+      const customer = action.payload;
+      return {
+        ...state,
+        currentCustomer: customer,
+        lastCustomerName: customer.name,
+        customersServedToday: state.customersServedToday + 1,
+        dayStats: { ...state.dayStats, customersServed: state.dayStats.customersServed + 1 },
+        dialogue: [...state.dialogue, sysMsg(`${customer.portrait} ${customer.name} enters the shop.`)],
+      };
+    }
+
+    case 'CUSTOMER_LEAVES':
+      return {
+        ...state,
+        currentCustomer: null,
+        currentNegotiation: null,
+        dialogue: action.payload
+          ? [
+              ...state.dialogue,
+              { speaker: 'customer', name: state.currentCustomer?.name, portrait: state.currentCustomer?.portrait, text: action.payload },
+              sysMsg(`${state.currentCustomer?.name ?? 'The customer'} wanders back out.`),
+            ]
+          : [...state.dialogue, sysMsg(`${state.currentCustomer?.name ?? 'The customer'} wanders back out.`)],
+      };
+
+    case 'NEGOTIATION_STARTED': {
+      const { item, offer, text } = action.payload;
+      const customer = state.currentCustomer;
+      if (!customer || state.currentNegotiation) return state;
+      const patience = startingPatience(customer.personalityTraits);
       return {
         ...state,
         currentNegotiation: {
-          item: item, 
-          customer: customer,
-          customerOffer: customerOffer, 
-          playerOffer: null, // Player hasn't offered yet
-          // Initialize history with the customer's first move
-          history: [{
-            speaker: 'customer',
-            text: spokenResponse,
-            offer: customerOffer
-          }],
-          initialPatience: calculateStartingPatience(customer.personalityTraits), // Store initial
-          patience: calculateStartingPatience(customer.personalityTraits), // Initialize current patience
-          status: 'active' // Negotiation is now active
-        }
+          item,
+          customer,
+          customerOffer: offer,
+          initialPatience: patience,
+          patience,
+          history: [{ speaker: 'customer', text, offer }],
+        },
+        dialogue: [
+          ...state.dialogue,
+          { speaker: 'customer', name: customer.name, portrait: customer.portrait, text, offer },
+        ],
       };
     }
 
-    // Combined and corrected PLAYER_RESPONSE case
-    case 'PLAYER_RESPONSE': { 
-      console.log('Handling PLAYER_RESPONSE with payload:', action.payload);
-      if (!state.currentNegotiation) {
-        console.warn('No current negotiation to respond to');
-        return state;
-      }
-      
+    case 'PLAYER_COUNTER': {
+      if (!state.currentNegotiation) return state;
       const { text, price } = action.payload;
-      const currentPatience = state.currentNegotiation.patience ?? 5; // Default if undefined
-      const nextPatience = Math.max(0, currentPatience - 1); // Decrease patience, min 0
-      const dialogueText = `You: ${text} (Offer ${price}g)`; // Add offer to dialogue
-      console.log('Updating negotiation state with player response, patience:', nextPatience);
-
-      // If patience hits 0 after player response, end negotiation immediately
-      if (nextPatience === 0) {
-        console.log('Patience hit 0, ending negotiation.');
-        const reputationChange = -1; // Lose reputation
-        // Ensure customer name is available for the message
-        const customerName = state.currentNegotiation.customer?.name || 'The customer'; 
-        return {
-          ...state,
-          currentNegotiation: null,
-          reputation: state.reputation + reputationChange,
-          dialogue: [
-            ...state.dialogue,
-            dialogueText, // Show player's last attempt with offer
-            `${customerName} has run out of patience! Negotiation ended. (${reputationChange} Rep)` // Improved message
-          ]
-        };
-      }
-
-      // Otherwise, update state normally for AI to respond
       return {
         ...state,
         currentNegotiation: {
           ...state.currentNegotiation,
-          playerOffer: price,
-          patience: nextPatience, // Update patience
-          history: [
-            ...state.currentNegotiation.history,
-            {
-              speaker: 'player',
-              text: text,
-              offer: price
-            }
-          ]
+          patience: Math.max(0, state.currentNegotiation.patience - 1),
+          history: [...state.currentNegotiation.history, { speaker: 'player', text, offer: price }],
         },
-        dialogue: [
-          ...state.dialogue,
-          dialogueText // Use text with offer included
-        ]
+        dialogue: [...state.dialogue, { speaker: 'player', text, offer: price }],
       };
     }
 
-    case 'CUSTOMER_RESPONSE': {
-      console.log('Handling CUSTOMER_RESPONSE with payload:', action.payload);
-      if (!state.currentNegotiation) {
-        console.warn('No current negotiation for customer to respond to');
-        return state;
-      }
-
+    case 'CUSTOMER_COUNTER': {
+      if (!state.currentNegotiation) return state;
       const { text, offer } = action.payload;
-      const currentPatience = state.currentNegotiation.patience ?? 5; // Default if undefined
-      // Only decrease patience if it's a counter, not initial offer (already handled)
-      // We might refine this - maybe decrease less if offer is good? For now, decrease on counter.
-      const nextPatience = state.currentNegotiation.history.length > 1 
-                           ? Math.max(0, currentPatience - 1) 
-                           : currentPatience; 
-      console.log('Updating negotiation state with customer response, patience:', nextPatience);
-
+      const { customer } = state.currentNegotiation;
       return {
         ...state,
         currentNegotiation: {
           ...state.currentNegotiation,
           customerOffer: offer,
-          patience: nextPatience, // Update patience
-          history: [
-            ...state.currentNegotiation.history,
-            {
-              speaker: 'customer',
-              text: text,
-              offer: offer
-            }
-          ]
+          history: [...state.currentNegotiation.history, { speaker: 'customer', text, offer }],
+        },
+        dialogue: [...state.dialogue, { speaker: 'customer', name: customer.name, portrait: customer.portrait, text, offer }],
+      };
+    }
+
+    case 'SALE': {
+      if (!state.currentNegotiation) return state;
+      const { price, text } = action.payload;
+      const { item, customer } = state.currentNegotiation;
+      const repGain = saleReputation(price, item.baseValue);
+      const profit = price - item.wholesalePrice;
+      const bestFlip =
+        !state.stats.bestFlip || profit > state.stats.bestFlip.profit
+          ? { name: item.name, emoji: item.emoji, profit }
+          : state.stats.bestFlip;
+      return {
+        ...state,
+        gold: state.gold + price,
+        displayedItems: state.displayedItems.filter((i) => i.instanceId !== item.instanceId),
+        currentNegotiation: null,
+        currentCustomer: null,
+        reputation: state.reputation + repGain,
+        dayStats: {
+          ...state.dayStats,
+          revenue: state.dayStats.revenue + price,
+          itemsSold: state.dayStats.itemsSold + 1,
+        },
+        stats: {
+          ...state.stats,
+          itemsSold: state.stats.itemsSold + 1,
+          totalRevenue: state.stats.totalRevenue + price,
+          bestFlip,
         },
         dialogue: [
           ...state.dialogue,
-          // Add offer to dialogue message
-          `${state.currentNegotiation.customer.name}: ${text} ${offer !== null ? `(Offers ${offer}g)` : ''}` 
-        ]
+          ...(text ? [{ speaker: 'customer', name: customer.name, portrait: customer.portrait, text }] : []),
+          sysMsg(`Sold ${item.emoji} ${item.name} for ${price}g${repGain ? ` (+${repGain} Rep)` : ''}. Profit: ${profit >= 0 ? '+' : ''}${profit}g.`),
+        ],
       };
     }
 
-    case 'UPDATE_REPUTATION': { // New action type
-      const newReputation = state.reputation + action.payload;
-      console.log(`Reputation updated: ${state.reputation} -> ${newReputation}`);
-      return {
-        ...state,
-        reputation: newReputation
-      };
-    }
-
-    case 'ACCEPT_OFFER': {
+    case 'NEGOTIATION_FAILED': {
       if (!state.currentNegotiation) return state;
-      
-      const { item, customerOffer } = state.currentNegotiation;
-      const newGold = state.gold + customerOffer;
-      const newDisplayedItems = state.displayedItems.filter(
-        i => i.instanceId !== item.instanceId
-      );
-
-      // Calculate reputation change based on deal quality
-      let reputationChange = 0;
-      const ratio = customerOffer / (item.baseValue || 1); // Avoid division by zero if baseValue is missing/0
-      if (ratio < 0.8) { // Bad Deal for player
-        reputationChange = 1; 
-      } else if (ratio >= 0.8 && ratio < 1.2) { // Fair Deal
-        reputationChange = 0; 
-      } else { // Good Deal for player
-        reputationChange = 0;
-      }
-      
-      return {
-        ...state,
-        gold: newGold,
-        displayedItems: newDisplayedItems,
-        currentNegotiation: null,
-        reputation: state.reputation + reputationChange, // Update reputation
-        dialogue: [
-          ...state.dialogue,
-          // Update dialogue to show correct rep change (or lack thereof)
-          `Sold ${item.name} for ${customerOffer}g! ${reputationChange > 0 ? `(+${reputationChange} Rep)` : reputationChange < 0 ? `(${reputationChange} Rep)`: '(0 Rep)'}`
-        ]
+      const { text, reason } = action.payload;
+      const { customer } = state.currentNegotiation;
+      const closers = {
+        patience: `${customer.name} runs out of patience and storms off. (-1 Rep)`,
+        reject: `${customer.name} walks away from the deal. (-1 Rep)`,
+        walkaway: `You wave ${customer.name} off. They leave annoyed. (-1 Rep)`,
       };
-    }
-
-    case 'UPGRADE_SHELF': { // New action type
-      const upgradeCost = action.payload; // Pass cost in payload
-      if (state.gold >= upgradeCost) {
-        return {
-          ...state,
-          gold: state.gold - upgradeCost,
-          shopShelves: state.shopShelves + 1,
-          dialogue: [
-            ...state.dialogue,
-            `Upgraded shelf capacity to ${state.shopShelves + 1}! (-${upgradeCost}g)`
-          ]
-        };
-      }
-      // Should ideally be prevented by button disable, but good to have safeguard
-      return state; 
-    }
-
-    case 'END_NEGOTIATION': {
-      if (!state.currentNegotiation) return state;
-      const reputationChange = -1; // Lose reputation on failed/ended negotiation
-      
       return {
         ...state,
         currentNegotiation: null,
-        reputation: state.reputation + reputationChange, // Update reputation
+        currentCustomer: null,
+        reputation: state.reputation - 1,
+        dayStats: { ...state.dayStats, failed: state.dayStats.failed + 1 },
+        stats: { ...state.stats, failedNegotiations: state.stats.failedNegotiations + 1 },
         dialogue: [
           ...state.dialogue,
-          // Add customer name and rep change to the message
-          `${state.currentNegotiation.customer?.name || 'The customer'} leaves in frustration. (${reputationChange} Rep)` 
-        ]
+          ...(text ? [{ speaker: 'customer', name: customer.name, portrait: customer.portrait, text }] : []),
+          sysMsg(closers[reason] ?? closers.reject),
+        ],
       };
+    }
+
+    case 'DEBUG_PATCH': {
+      // Dev-only escape hatch for playtesting (window.__haggle in dev builds).
+      if (!import.meta.env.DEV) return state;
+      return { ...state, ...action.payload };
     }
 
     default:
@@ -310,10 +347,20 @@ function gameReducer(state, action) {
 }
 
 export function GameStateProvider({ children }) {
-  const [state, dispatch] = useReducer(gameReducer, {
-    ...initialState,
-    lastUpdated: Date.now()
-  });
+  const [state, dispatch] = useReducer(gameReducer, undefined, initState);
+
+  // Auto-save. Mid-negotiation state is dropped on load, not on save, so the
+  // rest of the day survives a refresh.
+  useEffect(() => {
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    } catch (e) {
+      console.warn('Could not save game:', e);
+    }
+    if (import.meta.env.DEV) {
+      window.__haggle = { state, dispatch };
+    }
+  }, [state]);
 
   return (
     <GameStateContext.Provider value={{ state, dispatch }}>

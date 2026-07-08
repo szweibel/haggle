@@ -1,74 +1,60 @@
 import { useGameState } from '../contexts/GameStateContext';
-// Removed COLORS, UI_PADDING import
-import { WHOLESALE_ITEMS, ITEM_TIERS } from '../gameState'; // Import ITEM_TIERS
-// Removed import of ShopLayout styles
-import styles from './MarketPanel.module.css'; // Import component-specific styles
+import { WHOLESALE_ITEMS, ITEM_TIERS, MARKET_TIER_THRESHOLDS } from '../gameState';
+import styles from './MarketPanel.module.css';
 
 function MarketItem({ item }) {
   const { state, dispatch } = useGameState();
   const canAfford = state.gold >= item.wholesalePrice;
 
-  const handleBuy = () => {
-    dispatch({ type: 'BUY_ITEM', payload: item });
-  };
-
-  // Combine button classes based on affordability
-  const buttonClassName = `
-    ${styles.buyButton} 
-    ${!canAfford ? styles.buyButtonDisabled : ''}
-  `;
-
   return (
-    // Apply market item style
     <div className={styles.marketItem}>
-      <span>{item.name} ({item.wholesalePrice}g)</span>
-      {/* Apply combined button class name, remove inline styles */}
-      <button 
-        onClick={handleBuy}
+      <span className={styles.itemEmoji}>{item.emoji}</span>
+      <div className={styles.itemInfo}>
+        <span className={styles.itemName}>{item.name}</span>
+        <span className={styles.itemMeta}>resells around {item.baseValue}g</span>
+      </div>
+      <button
+        onClick={() => dispatch({ type: 'BUY_ITEM', payload: item })}
         disabled={!canAfford}
-        className={buttonClassName.trim()}
+        className={`${styles.buyButton} ${!canAfford ? styles.buyButtonDisabled : ''}`}
       >
-        Buy
+        {item.wholesalePrice}g
       </button>
     </div>
   );
 }
 
-// Define reputation thresholds for tiers
-const TIER_THRESHOLDS = {
-  'Common': 0,
-  'Uncommon': 10,
-  'Rare': 25
-};
-
-// Accept className as a prop
 export default function MarketPanel({ className }) {
-  const { state } = useGameState(); // Get game state for reputation
-
-  // Filter items based on player reputation
-  const availableItems = WHOLESALE_ITEMS.filter(item => {
-    const requiredRep = TIER_THRESHOLDS[item.tier] ?? 0; // Default to 0 if tier not found
-    return state.reputation >= requiredRep;
-  });
-
-  // Combine passed className, add scrollable class
-  const combinedClassName = `${className || ''} ${styles.panelScrollable}`;
+  const { state } = useGameState();
 
   return (
-    // Apply combined className from props
-    <div className={combinedClassName} style={{ maxHeight: '100%' /* Keep maxHeight for now */ }}>
-      {/* Apply title style */}
-      <h3 className={styles.marketTitle}>Wholesale Market (Rep: {state.reputation})</h3> {/* Optionally display rep */}
-      {/* Apply items container style */}
-      <div className={styles.itemsContainer}>
-        {availableItems.length > 0 ? (
-          availableItems.map((item) => (
-            <MarketItem key={item.id} item={item} />
-          ))
-        ) : (
-          // Apply no items text style
-          <p className={styles.noItemsText}>No items available at your current reputation level.</p>
-        )}
+    <div className={`${className || ''}`}>
+      <h3 className={styles.marketTitle}>🏪 Wholesale Market</h3>
+      <div className={styles.itemsScroll}>
+        {ITEM_TIERS.map((tier) => {
+          const required = MARKET_TIER_THRESHOLDS[tier] ?? 0;
+          const unlocked = state.reputation >= required;
+          const items = WHOLESALE_ITEMS.filter((i) => i.tier === tier);
+          return (
+            <div key={tier} className={styles.tierSection}>
+              <h4 className={styles.tierHeading}>
+                {tier}
+                {!unlocked && <span className={styles.lockNote}>🔒 unlocks at {required} Rep</span>}
+              </h4>
+              {unlocked ? (
+                <div className={styles.itemsContainer}>
+                  {items.map((item) => (
+                    <MarketItem key={item.id} item={item} />
+                  ))}
+                </div>
+              ) : (
+                <p className={styles.lockedText}>
+                  Build your reputation with fair deals to trade in {tier.toLowerCase()} goods.
+                </p>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

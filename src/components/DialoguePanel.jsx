@@ -1,39 +1,59 @@
 import { useEffect, useRef } from 'react';
 import { useGameState } from '../contexts/GameStateContext';
-// Removed COLORS, UI_PADDING import
-import { useWebLLMContext } from '../contexts/WebLLMContext';
-import Spinner from './Spinner';
-import styles from './DialoguePanel.module.css'; // Import the new CSS module
+import { useWebLLM } from '../contexts/WebLLMContext';
+import styles from './DialoguePanel.module.css';
 
-// Accept className as a prop
 export default function DialoguePanel({ className }) {
   const { state } = useGameState();
-  const { loading } = useWebLLMContext();
+  const { generating } = useWebLLM();
   const messagesEndRef = useRef(null);
 
-  // Auto-scroll to bottom when new messages are added
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [state.dialogue]);
-
-  // Combine passed className with any internal classes if needed later
-  const combinedClassName = `${className || ''}`; 
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+  }, [state.dialogue, generating]);
 
   return (
-    // Apply the combined className from props
-    <div className={combinedClassName} style={{ /* Keep only non-conflicting styles if any */ }}>
-      {/* Apply title style */}
-      <h3 className={styles.dialogueTitle}>Dialogue</h3>
-      {/* Apply messages container style */}
+    <div className={`${className || ''}`}>
+      <h3 className={styles.dialogueTitle}>💬 The Shop Floor</h3>
       <div className={styles.messagesContainer}>
-        {state.dialogue.map((message, index) => (
-          // Apply message style
-          <div key={index} className={styles.message}>
-            {message}
-            {/* Apply spinner container style if needed */}
-            {loading && index === state.dialogue.length - 1 && <span className={styles.spinnerContainer}><Spinner /></span>}
+        {state.dialogue.map((msg, index) => {
+          if (msg.speaker === 'system') {
+            return (
+              <div key={index} className={styles.systemMessage}>
+                {msg.text}
+              </div>
+            );
+          }
+          const isPlayer = msg.speaker === 'player';
+          return (
+            <div key={index} className={isPlayer ? styles.playerRow : styles.customerRow}>
+              <div className={isPlayer ? styles.playerBubble : styles.customerBubble}>
+                {!isPlayer && (
+                  <span className={styles.speakerName}>
+                    {msg.portrait} {msg.name}
+                  </span>
+                )}
+                <span>{msg.text}</span>
+                {msg.offer != null && (
+                  <span className={styles.offerChip}>
+                    {isPlayer ? 'asks' : 'offers'} {msg.offer}g
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {generating && (
+          <div className={styles.customerRow}>
+            <div className={`${styles.customerBubble} ${styles.thinking}`}>
+              <span className={styles.thinkingDots}>
+                <span>●</span>
+                <span>●</span>
+                <span>●</span>
+              </span>
+            </div>
           </div>
-        ))}
+        )}
         <div ref={messagesEndRef} />
       </div>
     </div>

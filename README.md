@@ -1,158 +1,58 @@
-# Haggle
+# 🪙 Haggle
 
-![Haggle Game](https://via.placeholder.com/800x400?text=Haggle+Game)
+A fantasy shop simulator where every customer is played by an open-weight language model running **entirely in your browser**. No server, no API key — the model downloads once, is cached, and all inference happens locally via WebGPU.
 
-## Overview
+You've just bought an item shop, along with the 2,500-gold debt that came with it. Buy stock wholesale, set your price tags, and haggle with AI customers until the deed is truly yours — or until the creditors take it back.
 
-Haggle is an experimental fantasy shop simulation game that demonstrates the power of WebLLM and structured generation. In this game, you take on the role of a shop owner who has just purchased a fantasy item shop, taking on a 5000 gold debt with weekly payments of 500 gold. Your goal is to buy items wholesale, display them in your shop, and negotiate with AI-powered customers to make a profit and pay off your debt.
+## How it plays
 
-The game showcases how large language models can be integrated directly into web applications to create dynamic, personalized interactions. Each customer in the game has a unique personality, budget, and interests, all powered by an LLM running directly in your browser.
+Each day has three phases:
 
-## Technical Highlights
+1. **Night (management)** — buy stock from the wholesale market, expand your shelf, and pay down the debt early if you can.
+2. **Morning (setup)** — arrange items on the shelf and set a price tag on each one. Fair tags sell fast and build reputation; steep tags mean harder haggles.
+3. **Day (selling)** — a limited number of customers come through the door. Each one has a personality, a hidden budget, and a patience meter. They pick an item, open with a lowball offer, and the haggling begins.
 
-- **In-Browser AI**: Uses [WebLLM](https://github.com/mlc-ai/web-llm) to run the Llama-3.1-8B-Instruct model directly in the browser
-- **Structured Generation**: Implements JSON-mode prompting to guide the LLM to generate structured responses for game mechanics
-- **React Framework**: Built with React and modern hooks for state management
-- **Drag-and-Drop Interface**: Uses react-dnd for intuitive item management
-- **Animated UI**: Features Pixi.js for visual effects
+A 500g loan payment comes due every seven days. Miss it and the shop is repossessed. Pay off the full debt and you win.
 
-## Gameplay Features
+Reputation is the long game: fair deals earn it, failed negotiations lose it, and it gates access to uncommon and rare goods, wealthier customers, and more foot traffic. Gouge people and you'll be rich, briefly, and alone.
 
-### Core Loop
+Your progress auto-saves in the browser, so you can close the tab mid-week and pick the game back up later.
 
-1. **Management Phase**: Buy items wholesale based on your reputation level
-2. **Setup Phase**: Arrange items on your shop shelves using drag-and-drop
-3. **Selling Phase**: Negotiate with AI-powered customers who have unique personalities, budgets, and interests
+## The interesting part: structured generation in the browser
 
-### Key Systems
+Haggle is a demonstration of [WebLLM](https://github.com/mlc-ai/web-llm) and grammar-constrained JSON generation. The negotiation loop works like this:
 
-- **AI Negotiation**: Each customer has distinct personality traits that affect their negotiation style, patience, and offers
-- **Reputation System**: Successfully complete sales to increase your reputation and unlock higher-tier items
-- **Loan System**: Manage weekly payments to avoid game over
-- **Shelf Upgrade System**: Expand your display capacity to show more items
-- **Item Tiers**: Progress from common to rare items as your reputation grows
+- Each customer turn is a chat completion with the full haggling history replayed, so the model remembers what's been said.
+- Responses are **schema-constrained** (`response_format: { type: "json_object", schema }`): the model must produce `{ decision, offer, spokenResponse }`, with `decision` restricted to an enum and `offer` bounded by the customer's budget. The chosen item is constrained to an enum of what's actually on the shelf.
+- The game logic then **validates and clamps** everything anyway: counters must move upward, offers can't exceed budgets or the asked price, and impossible "accepts" become max-budget counters. The LLM provides personality and dialogue; the rules engine keeps the economy honest.
 
-## Installation & Setup
+This split — model for flavor, code for invariants — is what lets even a 1B-parameter model run a coherent negotiation.
 
-### Prerequisites
+Three model sizes are offered on the start screen (Qwen 3.5, with thinking mode disabled — customers banter instead of deliberating):
 
-- Node.js (v16 or higher)
-- npm or yarn
+| Option | Model | Download | Character |
+| --- | --- | --- | --- |
+| Quick | Qwen 3.5 2B | ~1.2 GB | Fast, respectable personality |
+| Balanced | Qwen 3.5 4B | ~2.3 GB | Recommended |
+| Rich | Qwen 3.5 9B | ~5 GB | Most cunning; needs ~6.5 GB VRAM |
 
-### Installation
+## Running it
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/haggle.git
-cd haggle
-
-# Install dependencies
-npm install
-# or
-yarn install
-```
-
-### Running the Game
+Requires a browser with WebGPU (recent Chrome or Edge).
 
 ```bash
-# Start the development server
-npm run dev
-# or
-yarn dev
+bun install    # or npm install
+bun run dev    # or npm run dev
 ```
 
-Then open your browser to `http://localhost:5173` (or the port shown in your terminal).
+Then open the printed URL (the app is served under `/haggle/`).
 
-## How to Play
+`bun run build` produces a static bundle in `dist/`; a GitHub Actions workflow deploys it to GitHub Pages on push.
 
-### Objective
+## Architecture
 
-Successfully manage your shop, pay off your loan, and build your reputation to access higher-tier items and customers.
-
-### Game Phases
-
-1. **Management Phase**:
-   - Buy items from the wholesale market
-   - Upgrade your shelf capacity if you have enough gold
-   - Click "Start Next Day" when ready
-
-2. **Setup Phase**:
-   - Drag items from your inventory to the shelf
-   - Arrange your display strategically based on expected customers
-   - Click "Open Shop" when ready
-
-3. **Selling Phase**:
-   - Click "Next Customer" to bring in a potential buyer
-   - Negotiate with customers by countering their offers
-   - Balance between maximizing profit and maintaining customer patience
-   - Click "End Day" when finished selling
-
-### Negotiation Tips
-
-- Each customer has unique personality traits that affect their patience and offers
-- Watch the customer's mood indicator during negotiations
-- Higher reputation slightly improves initial offers
-- Successful sales increase reputation, while failed negotiations decrease it
-- Some customers are more interested in specific item categories
-
-## Development Status
-
-As of the latest update, Haggle is a functional prototype with the following features implemented:
-
-### Implemented Systems
-
-- Core gameplay loop with day/phase cycle
-- AI-powered customer negotiations using WebLLM
-- Inventory and shelf management with drag-and-drop
-- Reputation and loan systems
-- Item tiers and market progression
-- Shelf upgrade system
-
-### Known Issues / Areas for Improvement
-
-- Items are currently represented only by text (no visual icons)
-- Shelf drag-and-drop only supports moving items to the shelf, not rearranging or returning to inventory
-- Game balance (prices, budgets, reputation thresholds) needs further tuning
-- No save/load functionality (game state is lost on refresh)
-- Game over state needs clearer UI indication
-
-## Technical Architecture
-
-### Component Structure
-
-- **GameStateContext**: Central state management using React's useReducer
-- **WebLLMContext**: Manages the WebLLM integration and AI response generation
-- **ShopLayout**: Main UI container that changes based on game phase
-- **MarketPanel**: Displays items available for purchase
-- **Inventory**: Shows player's owned items with drag functionality
-- **Shelf**: Displays items for sale with drop functionality
-- **Controls**: Phase-specific buttons and negotiation interface
-- **DialoguePanel**: Shows conversation history with customers
-
-### WebLLM Integration
-
-The game uses the @mlc-ai/web-llm library to run the Llama-3.1-8B-Instruct model directly in the browser. The model is loaded in a web worker to prevent blocking the main UI thread. The integration includes:
-
-1. A consent flow for downloading the model
-2. Progress indicators during model initialization
-3. Structured prompts that guide the LLM to generate JSON responses
-4. Error handling for malformed AI responses
-
-### State Management
-
-The game state is managed through a central reducer with actions for:
-- Buying and moving items
-- Starting and progressing negotiations
-- Updating reputation and loan status
-- Advancing game phases and days
-
-## Credits & Acknowledgments
-
-- Built with [React](https://reactjs.org/) and [Vite](https://vitejs.dev/)
-- AI powered by [WebLLM](https://github.com/mlc-ai/web-llm) and [Llama-3.1-8B-Instruct](https://llama.meta.com/)
-- Drag and drop functionality via [react-dnd](https://react-dnd.github.io/react-dnd/)
-- Animations with [Pixi.js](https://pixijs.com/)
-
----
-
-This project is an experimental demonstration of how WebLLM can be used for structured generation in interactive applications. The AI-powered negotiations showcase how language models can create dynamic, personalized experiences directly in the browser without requiring server-side processing.
+- **React + Vite**, no backend. State lives in a single reducer ([src/contexts/GameStateContext.jsx](src/contexts/GameStateContext.jsx)) and persists to `localStorage`.
+- **[src/game/negotiation.js](src/game/negotiation.js)** — the negotiation engine: prompt builders, JSON schemas, and the validation/clamping layer.
+- **[src/contexts/WebLLMContext.jsx](src/contexts/WebLLMContext.jsx)** — model lifecycle in a web worker, download progress, and schema-constrained generation with retry.
+- **[src/gameState.js](src/gameState.js)** — items, customer types, and balance constants.
+- Components in [src/components/](src/components) — market, shelf, storeroom, dialogue log, negotiation controls, and overlays.

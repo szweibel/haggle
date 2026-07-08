@@ -1,72 +1,85 @@
-/* Inherits variables like --ui-padding, --color-text-gold, --color-text, --color-panel-stroke, --color-button, --color-button-text, --color-button-stroke, --color-text-light from ShopLayout.module.css or :root */
-
 .marketTitle {
-  margin-top: 0;
-  font-family: 'Cinzel Decorative', serif; /* Keep specific font */
-  color: var(--color-text-gold); /* Use CSS variable */
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.itemsScroll {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+  padding-right: 4px;
+}
+
+.tierSection { margin-bottom: 0.75rem; }
+
+.tierHeading {
+  font-size: 0.85rem;
+  margin: 0 0 0.4rem;
+  color: var(--color-text-light);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lockNote {
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--color-text-light);
+}
+
+.lockedText {
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--color-text-light);
+  margin: 0 0 0.5rem;
 }
 
 .itemsContainer {
-  /* Allow container to grow */
-  flex-grow: 1;
-  min-height: 0; /* Allow shrinking */
-  overflow-y: auto; /* Enable vertical scroll */
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.4rem;
 }
 
 .marketItem {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: calc(var(--ui-padding) / 1.5); /* Slightly more padding */
-  margin-bottom: calc(var(--ui-padding) / 2); /* Use CSS variable */
-  background-color: #D0C6AE; /* Match inventory/shelf slot background */
-  color: var(--color-text); /* Use CSS variable */
-  border-radius: 4px;
-  border: 1px solid var(--color-panel-stroke); /* Use CSS variable */
+  gap: 0.5rem;
+  padding: 0.4rem 0.55rem;
+  background: #fffdf5;
+  border: 1px solid var(--color-panel-stroke);
+  border-radius: 8px;
 }
+
+.itemEmoji { font-size: 1.3rem; }
+
+.itemInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.itemName {
+  font-weight: 700;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemMeta { font-size: 0.7rem; color: var(--color-text-light); }
 
 .buyButton {
-  padding: calc(var(--ui-padding) / 4) calc(var(--ui-padding) / 2); /* Use CSS variable */
-  font-size: 0.9em;
-  background-color: var(--color-button, #6c757d); /* Use variable */
-  color: var(--color-button-text, var(--color-panel)); /* Use variable */
-  border: 1px solid var(--color-button-stroke, #5a6268); /* Use variable */
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 700;
-  transition: opacity 0.2s, background-color 0.2s; /* Add transitions */
+  background: var(--color-button);
+  color: var(--color-button-text);
+  border: 1px solid var(--color-button-stroke);
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
 }
 
-.buyButtonDisabled {
-  background-color: var(--color-text-light, #adb5bd); /* Use variable */
-  border: 1px solid var(--color-text-light, #adb5bd); /* Use variable */
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.noItemsText {
-  color: var(--color-text-light);
-  font-style: italic;
-}
-
-/* Custom Scrollbar Styles (WebKit) */
-.itemsContainer::-webkit-scrollbar {
-  width: 8px; /* Thinner scrollbar */
-}
-
-.itemsContainer::-webkit-scrollbar-track {
-  background: var(--color-background, #2E2925); /* Dark track, matches main background */
-  border-radius: 4px;
-  margin-block: 2px; /* Add slight margin */
-}
-
-.itemsContainer::-webkit-scrollbar-thumb {
-  background-color: var(--color-panel-stroke, #4F463C); /* Use a theme color */
-  border-radius: 4px;
-  border: 2px solid transparent; /* Creates padding around thumb */
-  background-clip: content-box;
-}
-
-.itemsContainer::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-text-gold, #E6A800); /* Highlight on hover */
-}
+.buyButton:hover:not(:disabled) { background: var(--color-button-hover); }
+.buyButtonDisabled { opacity: 0.45; cursor: not-allowed; }

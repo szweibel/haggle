@@ -1,0 +1,24 @@
+.background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(230, 168, 0, 0.06), transparent 60%),
+    linear-gradient(160deg, #241f1b 0%, #2e2925 55%, #1d1916 100%);
+  pointer-events: none;
+}
+
+.coin {
+  position: absolute;
+  bottom: -40px;
+  animation-name: floatUp;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  filter: saturate(0.7);
+}
+
+@keyframes floatUp {
+  0% { transform: translateY(0) rotate(0deg); }
+  100% { transform: translateY(-115vh) rotate(360deg); }
+}

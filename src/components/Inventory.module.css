@@ -1,52 +1,56 @@
-/* Inherits variables like --ui-padding, --color-text-gold, --color-text, --color-panel-stroke from ShopLayout.module.css or :root */
-
 .inventoryTitle {
-  margin-top: 0;
-  font-family: 'Cinzel Decorative', serif; /* Keep specific font */
-  color: var(--color-text-gold); /* Use CSS variable */
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  flex-shrink: 0;
 }
 
 .itemsContainer {
-  /* Allow container to grow */
-  flex-grow: 1;
-  min-height: 0; /* Allow shrinking */
-  overflow-y: auto; /* Enable vertical scroll */
-  /* Add padding or margin if needed */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  overflow-y: auto;
+  min-height: 0;
+  align-content: flex-start;
+}
+
+.emptyText {
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--color-text-light);
+  margin: 0;
 }
 
 .inventoryItem {
-  padding: calc(var(--ui-padding) / 1.5); /* Slightly more padding */
-  margin-bottom: calc(var(--ui-padding) / 2); /* Use CSS variable */
-  background-color: #D0C6AE; /* Match shelf slot background */
-  color: var(--color-text); /* Use CSS variable */
-  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.5rem;
+  background: #fffdf5;
+  border: 1px solid var(--color-panel-stroke);
+  border-radius: 8px;
+  font-size: 0.8rem;
   cursor: grab;
-  border: 1px solid var(--color-panel-stroke); /* Use CSS variable */
-  transition: opacity 0.2s ease-in-out; /* Smooth opacity transition */
+  height: fit-content;
 }
 
-.inventoryItemDragging {
-  opacity: 0.5;
+.inventoryItemDragging { opacity: 0.4; }
+
+.itemEmoji { font-size: 1.05rem; }
+.itemName { font-weight: 700; }
+
+.stockButton {
+  background: var(--color-button);
+  color: var(--color-button-text);
+  border: none;
+  border-radius: 5px;
+  font-size: 0.68rem;
+  padding: 0.2rem 0.45rem;
+  margin-left: 0.2rem;
 }
 
-/* Custom Scrollbar Styles (WebKit) */
-.itemsContainer::-webkit-scrollbar {
-  width: 8px; /* Thinner scrollbar */
-}
+.stockButton:hover { background: var(--color-button-hover); }
 
-.itemsContainer::-webkit-scrollbar-track {
-  background: var(--color-background, #2E2925); /* Dark track, matches main background */
-  border-radius: 4px;
-  margin-block: 2px; /* Add slight margin */
-}
-
-.itemsContainer::-webkit-scrollbar-thumb {
-  background-color: var(--color-panel-stroke, #4F463C); /* Use a theme color */
-  border-radius: 4px;
-  border: 2px solid transparent; /* Creates padding around thumb */
-  background-clip: content-box;
-}
-
-.itemsContainer::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-text-gold, #E6A800); /* Highlight on hover */
+.dropHighlight {
+  outline: 2px dashed var(--color-gold);
+  outline-offset: -4px;
 }
