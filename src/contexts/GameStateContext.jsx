@@ -225,7 +225,7 @@ function gameReducer(state, action) {
       };
 
     case 'NEGOTIATION_STARTED': {
-      const { item, offer, text } = action.payload;
+      const { item, offer, text, perceivedValue } = action.payload;
       const customer = state.currentCustomer;
       if (!customer || state.currentNegotiation) return state;
       const patience = startingPatience(customer.personalityTraits);
@@ -235,6 +235,7 @@ function gameReducer(state, action) {
           item,
           customer,
           customerOffer: offer,
+          perceivedValue,
           initialPatience: patience,
           patience,
           history: [{ speaker: 'customer', text, offer }],

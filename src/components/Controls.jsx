@@ -15,7 +15,10 @@ import {
   buildCounterMessages,
   counterSchema,
   resolveCounter,
+  buildClarifyMessages,
+  clarifySchema,
   patienceLabel,
+  perceivedValue,
 } from '../game/negotiation';
 import styles from './Controls.module.css';
 
@@ -58,16 +61,37 @@ export default function Controls({ className }) {
     dispatch({ type: 'CUSTOMER_ENTERS', payload: customer });
 
     const shelf = state.displayedItems;
+    // What this customer believes each item is worth — experts appraise
+    // accurately, naive types can be way off. Fixed for the whole visit.
+    const perceived = shelf.map((i) => perceivedValue(i, customer));
     const parsed = await generateJSON(
-      buildInitialOfferMessages(customer, shelf, state.reputation),
+      buildInitialOfferMessages(customer, shelf, perceived),
       initialOfferSchema(shelf.length, customer.budget)
     );
-    const resolved = resolveInitialOffer(parsed, shelf, customer);
+    let resolved = resolveInitialOffer(parsed, shelf, customer, perceived);
+    if (resolved.kind === 'unclear') {
+      // Dialogue and offer field disagree ambiguously — ask the model
+      // what it meant, then resolve with that number (or fall back to
+      // the original field).
+      const clarified = await generateJSON(
+        buildClarifyMessages(customer, resolved.text),
+        clarifySchema(customer.budget)
+      );
+      resolved = resolveInitialOffer(
+        parsed, shelf, customer, perceived,
+        clarified?.offer ?? Math.round(Number(parsed.offer))
+      );
+    }
 
     if (resolved.kind === 'offer') {
       dispatch({
         type: 'NEGOTIATION_STARTED',
-        payload: { item: resolved.item, offer: resolved.offer, text: resolved.text },
+        payload: {
+          item: resolved.item,
+          offer: resolved.offer,
+          text: resolved.text,
+          perceivedValue: perceived[shelf.indexOf(resolved.item)],
+        },
       });
     } else if (resolved.kind === 'leave') {
       dispatch({ type: 'CUSTOMER_LEAVES', payload: resolved.text });
@@ -102,10 +126,17 @@ export default function Controls({ className }) {
     }
 
     const parsed = await generateJSON(
-      buildCounterMessages({ ...neg, patience: patienceAfter }, state.reputation, text, price),
+      buildCounterMessages({ ...neg, patience: patienceAfter }, text, price),
       counterSchema(neg.customer.budget)
     );
-    const resolved = resolveCounter(parsed, neg, price);
+    let resolved = resolveCounter(parsed, neg, price);
+    if (resolved.kind === 'unclear') {
+      const clarified = await generateJSON(
+        buildClarifyMessages(neg.customer, resolved.text),
+        clarifySchema(neg.customer.budget)
+      );
+      resolved = resolveCounter(parsed, neg, price, clarified?.offer ?? Math.round(Number(parsed.offer)));
+    }
 
     if (resolved.kind === 'accept') {
       dispatch({ type: 'SALE', payload: { price, text: resolved.text } });

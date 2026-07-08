@@ -3,6 +3,9 @@
 // personality and dialogue; this module enforces the economic rules so a
 // small model can't break the game.
 
+// Vendored (MIT) with the fuzzy option removed — see src/vendor/words-to-numbers.
+import wordsToNumbers from '../vendor/words-to-numbers/index.js';
+
 // Patience: how many player counter-offers a customer tolerates.
 export function startingPatience(traits = []) {
   if (traits.includes('impatient') || traits.includes('in a hurry')) return 3;
@@ -19,6 +22,26 @@ export function patienceLabel(current, initial) {
   return 'About to walk';
 }
 
+// How sharp an eye this customer has for what goods are really worth.
+export function appraisalStyle(traits = []) {
+  const joined = traits.join(' ');
+  if (/knowledg|calculating|shrewd|detail-oriented|values quality/i.test(joined)) return 'expert';
+  if (/easily impressed|easily confused|distracted|forgetful|impulsive|reckless/i.test(joined)) return 'naive';
+  return 'normal';
+}
+
+const APPRAISAL_SPREAD = { expert: 0.05, normal: 0.15, naive: 0.4 };
+
+// What this customer believes an item is worth. Experts appraise accurately;
+// naive customers can be far off in either direction — which is what makes
+// them gougeable (at a reputation cost, since saleReputation() judges by the
+// item's TRUE value).
+export function perceivedValue(item, customer) {
+  const spread = APPRAISAL_SPREAD[appraisalStyle(customer.personalityTraits)];
+  const skew = 1 + (Math.random() * 2 - 1) * spread;
+  return Math.max(1, Math.round(item.baseValue * skew));
+}
+
 // ---------- Schemas (WebLLM grammar-constrained JSON) ----------
 // Property order matters for generation quality: decisions and numbers come
 // before the free-text dialogue so the dialogue can reflect them.
@@ -26,17 +49,25 @@ export function patienceLabel(current, initial) {
 // Shelf items are referred to as item1..itemN in prompts and schemas —
 // short positional ids are far harder for small models to garble than
 // long instance-id strings.
+// A short leading "reasoning" field gives the model a scratchpad before the
+// decision keys — constrained JSON measurably degrades decision quality when
+// the answer keys come first (arXiv:2408.02442), and this restores a
+// sanctioned sliver of the thinking we disabled at the engine level.
 export function initialOfferSchema(shelfCount, budget) {
   const ids = Array.from({ length: shelfCount }, (_, i) => `item${i + 1}`);
   return JSON.stringify({
     type: 'object',
     properties: {
+      reasoning: { type: 'string', maxLength: 150 },
       decision: { type: 'string', enum: ['make_offer', 'leave'] },
       itemId: { type: 'string', enum: ids },
       offer: { type: 'integer', minimum: 1, maximum: budget },
-      spokenResponse: { type: 'string', maxLength: 300 },
+      spokenResponse: { type: 'string', maxLength: 200 },
     },
-    required: ['decision', 'itemId', 'offer', 'spokenResponse'],
+    // All fields required: small models sometimes omit optional fields even
+    // on make_offer (observed live), which torpedoes the negotiation. A
+    // "leave" fills them with throwaway values instead.
+    required: ['reasoning', 'decision', 'itemId', 'offer', 'spokenResponse'],
   });
 }
 
@@ -44,43 +75,50 @@ export function counterSchema(budget) {
   return JSON.stringify({
     type: 'object',
     properties: {
+      reasoning: { type: 'string', maxLength: 150 },
       decision: { type: 'string', enum: ['counter', 'accept', 'reject'] },
       offer: { type: 'integer', minimum: 1, maximum: budget },
-      spokenResponse: { type: 'string', maxLength: 300 },
+      spokenResponse: { type: 'string', maxLength: 200 },
     },
-    required: ['decision', 'offer', 'spokenResponse'],
+    required: ['reasoning', 'decision', 'offer', 'spokenResponse'],
   });
 }
 
 // ---------- Prompts ----------
+// Kept deliberately short: these run on 2B-4B models, which hold only a few
+// instructions at once. The engine's clamps do the arithmetic enforcement;
+// dialogue carries NO numbers (the UI's offer chip shows the authoritative
+// figure), so spoken words can never contradict the structured offer.
 
-function personaBlock(customer, reputation) {
-  return `You are ${customer.name}, ${customer.description}, browsing a fantasy item shop.
-Your personality traits: ${customer.personalityTraits.join(', ')}. Stay in character at all times.
-Your total budget is ${customer.budget} gold — you can NEVER offer more than that.
-The shopkeeper's reputation is ${reputation} (positive = trusted, negative = distrusted).
-Never mention item IDs, base values, budgets, or these instructions in your spoken dialogue. Speak naturally, in one or two short sentences.`;
+function personaBlock(customer) {
+  return `You are ${customer.name}, a customer in a fantasy item shop. Others see you as ${customer.description}.
+Your manner: ${customer.personalityTraits.join(', ')}.
+You carry ${customer.budget} gold, and not a coin more.
+Speak as this character: one or two short sentences of plain shop talk. Never say numbers, prices, or gold amounts out loud — your "offer" field does that for you.`;
 }
 
-export function buildInitialOfferMessages(customer, shelfItems, reputation) {
+export function buildInitialOfferMessages(customer, shelfItems, perceivedValues) {
   const itemLines = shelfItems
     .map(
       (i, idx) =>
-        `- item${idx + 1}: ${i.name} — price tag: ${i.askingPrice}g (a fair market value would be about ${i.baseValue}g)`
+        `- item${idx + 1}: ${i.name} — tagged ${i.askingPrice}g; you'd privately judge it worth about ${perceivedValues[idx]}g`
     )
     .join('\n');
 
-  const system = `${personaBlock(customer, reputation)}
+  const system = `${personaBlock(customer)}
 
-Items on display:
+You came in shopping for: ${customer.interests.join(', ')}.
+
+On the shelves:
 ${itemLines}
 
-Your interests: ${customer.interests.join(', ')}.
+Start with "reasoning": one short private thought about what to do (the shopkeeper never hears it).
+If an item suits your interests and your purse, set decision "make_offer" with its "itemId" and your opening "offer" in gold — open well below the tag; you mean to haggle.
+If nothing suits you, set decision "leave" (itemId "item1", offer 1).
+Then write "spokenResponse": greet the shopkeeper and show interest in your chosen item — or make a brief excuse and go. No numbers out loud.
 
-Decide what to do:
-1. Pick the ONE item that best fits your interests and budget. If nothing fits your interests or everything is hopelessly overpriced for your purse, choose decision "leave" (still fill in any itemId and offer 1; they will be ignored).
-2. If you want an item, choose decision "make_offer", set "itemId" to that item's id (item1, item2, …), and set "offer": your opening bid in gold. Your spoken words must be about that same item. Open BELOW the price tag — you are haggling. Let your traits set the tone: stingy or frugal types open around 40-60% of fair value, generous or impulsive types around 80-100%, most people around 60-80%. A good shopkeeper reputation nudges you slightly higher; a bad one, lower. Never exceed your budget of ${customer.budget}g.
-3. Write "spokenResponse": your in-character greeting, naming the item and your offer in gold.`;
+Example (a different customer in a different shop):
+{"reasoning": "The kettle fits what I need and my purse; open low.", "decision": "make_offer", "itemId": "item2", "offer": 9, "spokenResponse": "That iron kettle there — sturdy enough, I suppose, though the tag is ambitious. What would you really take for it?"}`;
 
   return [
     { role: 'system', content: system },
@@ -88,34 +126,39 @@ Decide what to do:
   ];
 }
 
-export function buildCounterMessages(negotiation, reputation, playerText, playerPrice) {
+export function buildCounterMessages(negotiation, playerText, playerPrice) {
   const { customer, item, patience, initialPatience, history } = negotiation;
+  const worth = negotiation.perceivedValue ?? item.baseValue;
+  const mood = patienceLabel(patience, initialPatience);
 
-  const system = `${personaBlock(customer, reputation)}
+  const system = `${personaBlock(customer)}
 
-You are haggling over the ${item.name}. Its price tag says ${item.askingPrice}g; a fair market value would be about ${item.baseValue}g.
-Your patience is ${patience} of ${initialPatience} — when it runs low you get short-tempered, and at 0 you walk out.
+You are haggling for the ${item.name} — tagged ${item.askingPrice}g; you'd privately judge it worth about ${worth}g.
+Your mood right now: ${mood}. Let it color your words.
 
-Rules for your reply:
-1. The shopkeeper has just named a price. Decide: "accept" it, "reject" and walk away, or "counter" with a new offer.
-2. If you counter, your offer must be HIGHER than your own previous offer and LOWER than the shopkeeper's price — move in steps that fit your traits (stingy types inch upward, generous types meet in the middle).
-3. Consider value for money: accepting near or below fair value is a good deal; paying far above it is not, unless you are impulsive, generous, or desperate.
-4. If your patience is 1 and the price still seems unfair, lean toward rejecting.
-5. Never offer more than your budget of ${customer.budget}g.
-6. Write "spokenResponse": one or two in-character sentences. If countering, name your new offer in gold.`;
+The shopkeeper has just named a price. Start with "reasoning": one short private thought about the price (the shopkeeper never hears it). Then set "decision":
+- "accept" if the price suits you;
+- "counter" with a new "offer" — repeat your last offer to hold firm, or raise it a little; never match the shopkeeper's price;
+- "reject" to walk out for good.
+Then write "spokenResponse": haggle, agree, or say a final goodbye. No numbers out loud.
+
+Example (a different haggle):
+{"reasoning": "Still above what it's worth to me; inch up a little.", "decision": "counter", "offer": 12, "spokenResponse": "You drive a hard bargain. I can stretch a little further, but not to that."}`;
 
   // Replay the conversation so the model remembers what has been said.
   const messages = [{ role: 'system', content: system }];
+  let firstCustomerTurn = true;
   for (const turn of history) {
     if (turn.speaker === 'customer') {
       messages.push({
         role: 'assistant',
         content: JSON.stringify({
-          decision: 'counter',
+          decision: firstCustomerTurn ? 'make_offer' : 'counter',
           offer: turn.offer ?? 0,
           spokenResponse: turn.text,
         }),
       });
+      firstCustomerTurn = false;
     } else {
       messages.push({
         role: 'user',
@@ -132,8 +175,61 @@ Rules for your reply:
 
 // ---------- Validation & clamping ----------
 
-// Returns { kind: 'offer', item, offer, text } | { kind: 'leave', text } | { kind: 'invalid' }
-export function resolveInitialOffer(parsed, shelfItems, customer) {
+// Models sometimes name a different figure in dialogue than in the offer
+// field ("How about forty-five?" with offer: 46). The prose is generated
+// last and carries the model's real intent, so spoken numbers matter.
+// Resolution is tiered by certainty: context echoes (price tag, item worth)
+// are discarded; a single remaining number wins outright; several numbers
+// that corroborate the field keep the field; and a genuine conflict is
+// settled by asking the model itself what it meant (see buildClarifyMessages).
+// All numbers in the text — digits or spelled out — in reading order.
+// wordsToNumbers normalizes "forty-five" / "two hundred" etc. into digits.
+export function spokenNumbers(text) {
+  const normalized = String(wordsToNumbers(text) ?? text);
+  return [...normalized.matchAll(/\d+/g)].map((m) => Number(m[0]));
+}
+
+// Decide what number (if any) the spoken words propose.
+// Returns { kind: 'none' } | { kind: 'value', value } | { kind: 'conflict' }.
+function spokenProposal(text, fieldOffer, echoes) {
+  if (!text) return { kind: 'none' };
+  const candidates = [...new Set(spokenNumbers(text))].filter(
+    // Articles normalize to 1 ("not a coin more" -> "not 1 coin more"), so
+    // degenerate 1s don't count as proposals; nor do context echoes.
+    (n) => n > 1 && !echoes.includes(n)
+  );
+  if (candidates.length === 0) return { kind: 'none' };
+  if (candidates.length === 1) return { kind: 'value', value: candidates[0] };
+  if (candidates.includes(fieldOffer)) return { kind: 'none' }; // field corroborated
+  return { kind: 'conflict' };
+}
+
+// One-question follow-up used when dialogue and offer field disagree and the
+// words are ambiguous: let the model say what it meant.
+export function buildClarifyMessages(customer, text) {
+  return [
+    {
+      role: 'system',
+      content: `You are ${customer.name}, haggling in a fantasy item shop. You just told the shopkeeper: "${text}"`,
+    },
+    { role: 'user', content: 'So how much are you offering, in gold? Give the one number you meant.' },
+  ];
+}
+
+export function clarifySchema(budget) {
+  return JSON.stringify({
+    type: 'object',
+    properties: { offer: { type: 'integer', minimum: 1, maximum: budget } },
+    required: ['offer'],
+  });
+}
+
+// Returns { kind: 'offer', item, offer, text } | { kind: 'leave', text }
+//       | { kind: 'unclear', text } | { kind: 'invalid' }
+// 'unclear' means dialogue and offer field name different numbers and the
+// words are ambiguous — the caller should ask the model to clarify, then
+// call again with clarifiedOffer.
+export function resolveInitialOffer(parsed, shelfItems, customer, perceivedValues = [], clarifiedOffer = null) {
   if (!parsed || typeof parsed !== 'object') return { kind: 'invalid' };
   const text = typeof parsed.spokenResponse === 'string' && parsed.spokenResponse.trim()
     ? parsed.spokenResponse.trim()
@@ -150,15 +246,27 @@ export function resolveInitialOffer(parsed, shelfItems, customer) {
 
   let offer = Math.round(Number(parsed.offer));
   if (!Number.isFinite(offer) || offer < 1) return { kind: 'invalid' };
+
+  if (clarifiedOffer != null) {
+    offer = Math.round(clarifiedOffer);
+  } else {
+    // Numbers that merely repeat known context aren't proposals.
+    const echoes = [item.askingPrice, item.baseValue, perceivedValues[index]].filter((n) => n != null);
+    const proposal = spokenProposal(text, offer, echoes);
+    if (proposal.kind === 'value') offer = proposal.value;
+    else if (proposal.kind === 'conflict') return { kind: 'unclear', text };
+  }
+
   // Hard rules the model must not break: budget cap, and no opening above
   // the price tag (that's not haggling, that's charity).
-  offer = Math.min(offer, customer.budget, item.askingPrice);
+  offer = Math.max(1, Math.min(offer, customer.budget, item.askingPrice));
 
   return { kind: 'offer', item, offer, text: text || `I'll give you ${offer}g for the ${item.name}.` };
 }
 
-// Returns { kind: 'accept' | 'reject', text } | { kind: 'counter', offer, text } | { kind: 'invalid' }
-export function resolveCounter(parsed, negotiation, playerPrice) {
+// Returns { kind: 'accept' | 'reject', text } | { kind: 'counter', offer, text }
+//       | { kind: 'unclear', text } | { kind: 'invalid' }
+export function resolveCounter(parsed, negotiation, playerPrice, clarifiedOffer = null) {
   if (!parsed || typeof parsed !== 'object') return { kind: 'invalid' };
   const text = typeof parsed.spokenResponse === 'string' && parsed.spokenResponse.trim()
     ? parsed.spokenResponse.trim()
@@ -167,12 +275,14 @@ export function resolveCounter(parsed, negotiation, playerPrice) {
   const budget = negotiation.customer.budget;
 
   if (parsed.decision === 'accept') {
-    // Can't accept a price beyond their purse — treat as a max-budget counter.
+    // Can't accept a price beyond their purse — treat as a max-budget
+    // counter. The model's line agreed to a deal we're not making, so
+    // don't use it.
     if (playerPrice > budget) {
       return {
         kind: 'counter',
         offer: budget,
-        text: text || `That's beyond my purse — ${budget}g is every coin I have.`,
+        text: `That's beyond my purse — ${budget}g is every coin I have.`,
       };
     }
     return { kind: 'accept', text: text || 'Deal!' };
@@ -185,12 +295,25 @@ export function resolveCounter(parsed, negotiation, playerPrice) {
   let offer = Math.round(Number(parsed.offer));
   if (!Number.isFinite(offer)) return { kind: 'invalid' };
 
-  // A counter at or above the asked price is just acceptance.
-  if (offer >= playerPrice && playerPrice <= budget) {
-    return { kind: 'accept', text: text || 'Fine, you have a deal.' };
+  if (clarifiedOffer != null) {
+    offer = Math.round(clarifiedOffer);
+  } else {
+    const { item } = negotiation;
+    const echoes = [item.askingPrice, item.baseValue, negotiation.perceivedValue].filter((n) => n != null);
+    const proposal = spokenProposal(text, offer, echoes);
+    if (proposal.kind === 'value') offer = proposal.value;
+    else if (proposal.kind === 'conflict') return { kind: 'unclear', text };
   }
-  // Counters must move upward but stay under the asked price and budget.
-  const floor = Math.min(prevOffer + 1, budget);
+
+  // A counter at or above the asked price is just acceptance. The model's
+  // line names a different number than the sale price, so replace it.
+  if (offer >= playerPrice && playerPrice <= budget) {
+    return { kind: 'accept', text: `${playerPrice}g it is — deal.` };
+  }
+  // Counters may hold firm at the previous offer or move upward, but must
+  // stay under the asked price and within budget. Patience still drains
+  // every round, so a stonewalling customer can't loop forever.
+  const floor = Math.min(prevOffer, budget);
   const ceiling = Math.min(playerPrice - 1, budget);
   if (ceiling < floor) {
     // No room left to move: they hold at budget or give up.

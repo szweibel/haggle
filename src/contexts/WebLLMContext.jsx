@@ -97,8 +97,10 @@ export function WebLLMProvider({ children, startLoading }) {
         setProgress(1);
       } catch (e) {
         console.error('WebLLM initialization failed:', e);
-        setError(e.message || String(e));
-        setStatus(`AI failed to load: ${e.message}`);
+        // Worker errors sometimes surface as plain objects, not Errors.
+        const msg = e?.message || (typeof e === 'string' ? e : JSON.stringify(e)) || String(e);
+        setError(msg);
+        setStatus(`AI failed to load: ${msg}`);
       }
     })();
   }, [startLoading]);
