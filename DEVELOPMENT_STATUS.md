@@ -37,6 +37,7 @@ The March 2025 prototype was fully revised into a complete, winnable game. This 
 - Small models occasionally produce off-key dialogue even though the structured offer stays correct (Qwen 3.5 2B is noticeably better than the old Llama 1B; 4B is solid). The offer chip in the dialogue log is always the authoritative number.
 - The Rich (9B) option was not playtested end-to-end — same family and chat template as the verified 2B/4B, but worth one manual run on a machine with ~6.5 GB of VRAM.
 - Customer memory is per-visit; regulars who remember past deals would be a fun reputation extension.
+- Safari can't run the models: its WebGPU caps maxStorageBuffersPerShaderStage at 8 and the MLC kernels need 10 (baked into the compiled WASM). The start screen preflights the adapter limit and says so before any download; the runtime error is also translated into plain language. Chrome/Edge on desktop work.
 - No sound. No mobile-optimized layout (playable but cramped below ~900px).
 - Balance has had one tuning pass; a full playthrough sheet (expected profit per day vs. debt schedule) would sharpen it.
 - Possible showcase additions: streaming dialogue text as it generates; a "shopkeeper's ledger" screen graphing profit per day.

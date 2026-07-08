@@ -98,7 +98,12 @@ export function WebLLMProvider({ children, startLoading }) {
       } catch (e) {
         console.error('WebLLM initialization failed:', e);
         // Worker errors sometimes surface as plain objects, not Errors.
-        const msg = e?.message || (typeof e === 'string' ? e : JSON.stringify(e)) || String(e);
+        let msg = e?.message || (typeof e === 'string' ? e : JSON.stringify(e)) || String(e);
+        if (/maxStorageBuffersPerShaderStage/i.test(msg)) {
+          msg =
+            "This browser's WebGPU can't run the model kernels (they need 10 storage buffers " +
+            'per shader stage; Safari currently allows 8). Open the game in Chrome or Edge on desktop.';
+        }
         setError(msg);
         setStatus(`AI failed to load: ${msg}`);
       }
