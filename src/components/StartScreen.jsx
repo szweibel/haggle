@@ -4,8 +4,10 @@ import { useGameState } from '../contexts/GameStateContext';
 import AnimatedBackground from './AnimatedBackground';
 import styles from './StartScreen.module.css';
 
-// The MLC model kernels bind 10 storage buffers per shader stage; WebKit's
-// WebGPU stops at the spec default of 8, so Safari can't run them (yet).
+// The MLC model kernels bind 10 storage buffers per shader stage. Only
+// Chromium's WebGPU (Dawn) allows requesting more than the spec default of
+// 8 — Safari (WebKit) and Firefox (wgpu) both cap at 8, so neither can run
+// the models yet.
 const REQUIRED_STORAGE_BUFFERS = 10;
 
 export default function StartScreen({ onStart }) {
@@ -85,8 +87,9 @@ export default function StartScreen({ onStart }) {
         {gpu.state === 'limited' && (
           <p className={styles.warning}>
             ⚠️ This browser's WebGPU allows only {gpu.limit} storage buffers per shader stage, but
-            the AI model needs {REQUIRED_STORAGE_BUFFERS} — Safari currently has this cap. Please
-            open the game in Chrome or Edge on desktop.
+            the AI model needs {REQUIRED_STORAGE_BUFFERS}. Safari and Firefox both have this cap
+            today — please open the game in a Chromium browser (Chrome, Edge, Brave, Arc) on
+            desktop.
           </p>
         )}
 

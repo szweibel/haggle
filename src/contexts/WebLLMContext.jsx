@@ -102,7 +102,8 @@ export function WebLLMProvider({ children, startLoading }) {
         if (/maxStorageBuffersPerShaderStage/i.test(msg)) {
           msg =
             "This browser's WebGPU can't run the model kernels (they need 10 storage buffers " +
-            'per shader stage; Safari currently allows 8). Open the game in Chrome or Edge on desktop.';
+            'per shader stage; Safari and Firefox allow 8). Open the game in a Chromium browser ' +
+            '(Chrome, Edge, Brave, Arc) on desktop.';
         }
         setError(msg);
         setStatus(`AI failed to load: ${msg}`);

@@ -38,9 +38,10 @@ Three model sizes are offered on the start screen (Qwen 3.5, with thinking mode 
 
 ## Running it
 
-Requires a browser with WebGPU — **use a recent Chrome or Edge on desktop**. Safari exposes
-WebGPU but caps storage buffers per shader stage at 8, while the compiled model kernels need
-10, so it can't run the models yet; the start screen checks for this up front.
+Requires a browser with WebGPU — in practice **a Chromium browser (Chrome, Edge, Brave, Arc)
+on desktop**. Safari and Firefox both cap WebGPU storage buffers per shader stage at the spec
+default of 8, while the compiled model kernels need 10 — a limit only Chromium currently
+raises. The start screen checks for this up front, before any download.
 
 ```bash
 bun install    # or npm install
