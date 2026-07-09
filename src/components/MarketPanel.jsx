@@ -11,7 +11,7 @@ function MarketItem({ item }) {
       <span className={styles.itemEmoji}>{item.emoji}</span>
       <div className={styles.itemInfo}>
         <span className={styles.itemName}>{item.name}</span>
-        <span className={styles.itemMeta}>resells around {item.baseValue}g</span>
+        <span className={styles.itemMeta}>{item.category}</span>
       </div>
       <button
         onClick={() => dispatch({ type: 'BUY_ITEM', payload: item })}

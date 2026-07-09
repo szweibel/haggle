@@ -18,7 +18,7 @@ function ShelfItem({ item, editable, negotiated }) {
     <div
       ref={drag}
       className={`${styles.shelfItem} ${negotiated ? styles.shelfItemActive : ''} ${isDragging ? styles.shelfItemDragging : ''}`}
-      title={`Cost: ${item.wholesalePrice}g · fair value ~${item.baseValue}g`}
+      title={`Cost: ${item.wholesalePrice}g`}
     >
       <span className={styles.itemEmoji}>{item.emoji}</span>
       <span className={styles.itemName}>{item.name}</span>

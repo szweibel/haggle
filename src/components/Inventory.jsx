@@ -18,7 +18,7 @@ const InventoryItem = memo(function InventoryItem({ item, canStock, onStock }) {
     <div
       ref={drag}
       className={`${styles.inventoryItem} ${isDragging ? styles.inventoryItemDragging : ''}`}
-      title={`Cost: ${item.wholesalePrice}g · fair value ~${item.baseValue}g`}
+      title={`Cost: ${item.wholesalePrice}g`}
     >
       <span className={styles.itemEmoji}>{item.emoji}</span>
       <span className={styles.itemName}>{item.name}</span>
